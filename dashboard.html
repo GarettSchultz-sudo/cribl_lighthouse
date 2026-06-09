@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cribl Lighthouse — Compliance Change Operations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1016; --panel:#141922; --panel-2:#1a2130; --line:#252d3d;
+    --line-soft:#1e2533; --ink:#eef2f8; --muted:#8c98ad; --muted-2:#5c6679;
+    --signal:#f5a623; --signal-dim:#5a4318;
+    --teal:#34d3b0; --teal-dim:#143630;
+    --red:#ff6b6b; --red-dim:#3a1f22;
+    --blue:#5aa9ff; --blue-dim:#16263d;
+    --radius:10px;
+    --mono:"IBM Plex Mono",monospace; --sans:"Archivo",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--sans); background:var(--bg); color:var(--ink);
+    font-size:14px; line-height:1.45;
+    background-image:radial-gradient(circle at 15% -10%,#171f2e 0,transparent 45%),radial-gradient(circle at 110% 0,#1b1620 0,transparent 40%);
+    background-attachment:fixed;
+  }
+  ::selection{background:var(--signal);color:#1a1303}
+  /* ---------- top bar ---------- */
+  header{
+    display:flex;align-items:center;gap:22px;
+    padding:14px 24px;border-bottom:1px solid var(--line);
+    background:rgba(13,16,22,.82);backdrop-filter:blur(8px);
+    position:sticky;top:0;z-index:40;
+  }
+  .brand{display:flex;align-items:baseline;gap:11px}
+  .brand .mark{
+    font-family:var(--mono);font-weight:600;font-size:12px;letter-spacing:.5px;
+    color:#1a1303;background:var(--signal);padding:3px 8px;border-radius:5px;
+  }
+  .brand h1{font-size:17px;font-weight:700;letter-spacing:-.2px}
+  .brand span{color:var(--muted);font-size:12px;font-family:var(--mono)}
+  .sync{margin-left:auto;display:flex;align-items:center;gap:18px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 3px var(--teal-dim);display:inline-block;margin-right:6px;animation:pulse 2.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .btn{
+    font-family:var(--sans);font-size:12.5px;font-weight:600;cursor:pointer;
+    border:1px solid var(--line);background:var(--panel-2);color:var(--ink);
+    padding:7px 13px;border-radius:7px;transition:.15s;
+  }
+  .btn:hover{border-color:var(--signal);color:var(--signal)}
+  .btn.primary{background:var(--signal);color:#1a1303;border-color:var(--signal)}
+  .btn.primary:hover{filter:brightness(1.08);color:#1a1303}
+  /* ---------- tabs ---------- */
+  nav.tabs{display:flex;gap:2px;padding:0 24px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .tab{
+    font-family:var(--mono);font-size:12px;letter-spacing:.3px;color:var(--muted);
+    padding:13px 16px;cursor:pointer;border-bottom:2px solid transparent;transition:.15s;
+    text-transform:uppercase;
+  }
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--signal);border-bottom-color:var(--signal)}
+  .tab .ct{font-size:10.5px;background:var(--panel-2);padding:1px 6px;border-radius:20px;margin-left:6px;color:var(--muted)}
+  .tab.active .ct{background:var(--signal-dim);color:var(--signal)}
+  main{padding:24px;max-width:1500px;margin:0 auto}
+  /* ---------- stat strip ---------- */
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden}
+  .stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,var(--muted-2))}
+  .stat .n{font-size:30px;font-weight:800;letter-spacing:-1px;line-height:1}
+  .stat .l{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-top:7px}
+  /* ---------- toolbar ---------- */
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  .search{flex:1;min-width:200px;position:relative}
+  .search input{
+    width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    color:var(--ink);font-family:var(--sans);font-size:13px;padding:9px 12px 9px 32px;
+  }
+  .search input:focus{outline:none;border-color:var(--signal)}
+  .search svg{position:absolute;left:10px;top:9px;opacity:.5}
+  .chip{
+    font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.4px;
+    padding:7px 11px;border-radius:7px;border:1px solid var(--line);background:var(--panel);
+    color:var(--muted);cursor:pointer;transition:.15s;
+  }
+  .chip:hover{color:var(--ink);border-color:var(--muted-2)}
+  .chip.on{background:var(--panel-2);color:var(--ink);border-color:var(--signal)}
+  /* ---------- feed cards ---------- */
+  .feed{display:flex;flex-direction:column;gap:11px}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;display:grid;grid-template-columns:78px 1fr auto;gap:18px;align-items:start;
+    transition:.15s;cursor:pointer;
+  }
+  .card:hover{border-color:var(--muted-2);transform:translateY(-1px)}
+  .kind{font-family:var(--mono);font-size:10.5px;font-weight:600;text-align:center;padding:6px 0;border-radius:6px;letter-spacing:.5px}
+  .kind.RFC{background:var(--blue-dim);color:var(--blue)}
+  .kind.NOTICE{background:var(--signal-dim);color:var(--signal)}
+  .kind.REG{background:var(--teal-dim);color:var(--teal)}
+  .card .id{font-family:var(--mono);font-size:11px;color:var(--muted);display:block;margin-top:5px}
+  .card h3{font-size:14.5px;font-weight:600;letter-spacing:-.1px;margin-bottom:5px}
+  .card p{color:var(--muted);font-size:12.5px;line-height:1.5;margin-bottom:9px}
+  .meta{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .tag{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:5px;background:var(--panel-2);color:var(--muted);border:1px solid var(--line-soft)}
+  .right{text-align:right;min-width:140px;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+  .status{font-family:var(--mono);font-size:10.5px;font-weight:600;padding:4px 9px;border-radius:20px;letter-spacing:.3px}
+  .status.open{background:var(--teal-dim);color:var(--teal)}
+  .status.soon{background:var(--signal-dim);color:var(--signal)}
+  .status.overdue{background:var(--red-dim);color:var(--red)}
+  .status.closed{background:var(--panel-2);color:var(--muted)}
+  .deadline{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .deadline b{color:var(--ink);font-weight:600}
+  .deadline.urgent b{color:var(--signal)}
+  .deadline.past b{color:var(--red)}
+  /* ---------- impact matrix ---------- */
+  .matrix{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+  th{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);background:var(--panel-2);position:sticky;top:0}
+  tbody tr:hover{background:var(--panel-2)}
+  .sysname{font-weight:600}
+  .heat{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;border-radius:5px;font-family:var(--mono);font-size:11px;font-weight:600}
+  .load-meter{height:6px;border-radius:3px;background:var(--panel-2);overflow:hidden;margin-top:6px}
+  .load-meter > div{height:100%;background:linear-gradient(90deg,var(--teal),var(--signal))}
+  /* ---------- kanban ---------- */
+  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px;min-height:120px}
+  .col.dragover{border-color:var(--signal);background:var(--panel-2)}
+  .col h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+  .col h4 .cnt{background:var(--panel-2);color:var(--ink);padding:1px 8px;border-radius:20px;font-size:11px}
+  .col .accent{width:100%;height:2px;border-radius:2px;margin-bottom:11px}
+  .task{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:11px 12px;
+    margin-bottom:10px;cursor:grab;transition:.12s;
+  }
+  .task:active{cursor:grabbing}
+  .task:hover{border-color:var(--muted-2)}
+  .task.dragging{opacity:.4}
+  .task .src{font-family:var(--mono);font-size:10px;color:var(--blue);margin-bottom:5px}
+  .task .ttl{font-size:12.5px;font-weight:600;line-height:1.35;margin-bottom:9px}
+  .task .foot{display:flex;justify-content:space-between;align-items:center}
+  .who{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .ava{width:18px;height:18px;border-radius:50%;background:var(--signal);color:#1a1303;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .pri{font-family:var(--mono);font-size:9.5px;font-weight:600;padding:2px 6px;border-radius:4px}
+  .pri.P1{background:var(--red-dim);color:var(--red)}
+  .pri.P2{background:var(--signal-dim);color:var(--signal)}
+  .pri.P3{background:var(--panel);color:var(--muted)}
+  /* ---------- sources panel ---------- */
+  .grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  .panel h2{font-size:15px;margin-bottom:4px}
+  .panel .sub{color:var(--muted);font-size:12.5px;margin-bottom:18px}
+  .src-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-soft)}
+  .src-row:last-child{border-bottom:none}
+  .src-row .ico{width:34px;height:34px;border-radius:8px;background:var(--panel-2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--signal)}
+  .src-row .info{flex:1;min-width:0}
+  .src-row .info b{font-size:13px}
+  .src-row .info code{font-family:var(--mono);font-size:10.5px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .live{font-family:var(--mono);font-size:9.5px;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+  .live.ok{background:var(--teal-dim);color:var(--teal)}
+  .live.proxy{background:var(--signal-dim);color:var(--signal)}
+  .live.api{background:var(--signal-dim);color:var(--signal)}
+  .live.lived{background:var(--teal-dim);color:var(--teal)}
+  .live.off{background:#3a1d1d;color:#f08a8a}
+  .arch{font-family:var(--mono);font-size:11.5px;line-height:2;color:var(--muted);background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:16px}
+  .arch b{color:var(--signal)}
+  .arch .ar{color:var(--muted-2)}
+  .hidden{display:none!important}
+  .note{font-size:11.5px;color:var(--muted-2);font-family:var(--mono);margin-top:14px;line-height:1.6}
+  /* ---------- detail drawer ---------- */
+  .drawer-bg{position:fixed;inset:0;background:rgba(5,7,11,.6);backdrop-filter:blur(2px);z-index:60;opacity:0;pointer-events:none;transition:.2s}
+  .drawer-bg.show{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:480px;max-width:92vw;background:var(--panel);border-left:1px solid var(--line);z-index:61;transform:translateX(100%);transition:.28s cubic-bezier(.3,.8,.3,1);overflow-y:auto;padding:26px}
+  .drawer.show{transform:translateX(0)}
+  .drawer .close{position:absolute;top:18px;right:18px;cursor:pointer;color:var(--muted);font-size:20px;background:none;border:none}
+  .drawer h2{font-size:18px;margin:8px 0 14px;letter-spacing:-.2px}
+  .drawer .field{margin-bottom:16px}
+  .drawer .field .k{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px}
+  .drawer .field .v{font-size:13px;line-height:1.55}
+  .drawer a{color:var(--blue);text-decoration:none;font-family:var(--mono);font-size:12px;word-break:break-all}
+  .drawer a:hover{text-decoration:underline}
+  .act-list{display:flex;flex-direction:column;gap:8px}
+  .act-list .ai{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:10px 12px;font-size:12.5px;display:flex;justify-content:space-between;gap:10px}
+  @media(max-width:1000px){.stats{grid-template-columns:repeat(2,1fr)}.board{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}}
+  :root{--violet:#b08cff;--violet-dim:#241b3a}
+  /* ===== IMPLEMENTATION TRACKER OVERLAY ===== */
+  .tk-bg{position:fixed;inset:0;background:rgba(4,6,10,.72);backdrop-filter:blur(3px);z-index:70;opacity:0;pointer-events:none;transition:.22s}
+  .tk-bg.show{opacity:1;pointer-events:auto}
+  .tk{position:fixed;top:0;right:0;bottom:0;width:760px;max-width:96vw;background:var(--bg);border-left:1px solid var(--line);z-index:71;transform:translateX(100%);transition:.3s cubic-bezier(.3,.8,.3,1);overflow-y:auto;display:flex;flex-direction:column}
+  .tk.show{transform:translateX(0)}
+  .tk-head{padding:22px 26px 0;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#141a26,#0f131c);position:sticky;top:0;z-index:5}
+  .tk-head .row{display:flex;align-items:flex-start;gap:14px}
+  .tk-head .kind{flex:0 0 auto;padding:6px 12px}
+  .tk-head h2{font-size:18px;font-weight:800;letter-spacing:-.3px;line-height:1.3;margin-bottom:6px}
+  .tk-head .sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:14px}
+  .tk-head .sub a{color:var(--blue);text-decoration:none}
+  .tk-close{position:absolute;top:18px;right:20px;cursor:pointer;color:var(--muted);font-size:24px;background:none;border:none;z-index:6}
+  .tk-close:hover{color:var(--ink)}
+  /* global progress */
+  .tk-prog{display:flex;align-items:center;gap:12px;padding:0 0 16px}
+  .tk-prog .bar{flex:1;height:7px;background:var(--panel-2);border-radius:5px;overflow:hidden;max-width:340px}
+  .tk-prog .bar>div{height:100%;background:linear-gradient(90deg,var(--teal),var(--signal));transition:width .4s;border-radius:5px}
+  .tk-prog .txt{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .tk-prog .txt b{color:var(--ink)}
+  /* tabs */
+  .tk-tabs{display:flex;gap:2px;padding:0 26px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .tk-tab{font-family:var(--mono);font-size:11px;letter-spacing:.3px;text-transform:uppercase;color:var(--muted);padding:11px 14px;cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
+  .tk-tab:hover{color:var(--ink)}
+  .tk-tab.active{color:var(--signal);border-bottom-color:var(--signal)}
+  .tk-body{padding:22px 26px 60px;overflow-y:auto;flex:1}
+  .tk-pane{display:none}.tk-pane.active{display:block}
+  /* deadline chips */
+  .tk-dls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .tk-dl{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+  .tk-dl .d{font-size:14px;font-weight:700}
+  .tk-dl .l{font-size:11px;color:var(--muted);margin-top:2px}
+  .tk-dl .cd{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--signal);margin-top:5px}
+  .tk-dl.past .cd{color:var(--red)}
+  /* summary cards */
+  .tk-sum{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:17px 19px;margin-bottom:14px}
+  .tk-sum h3{font-size:13px;color:var(--signal);font-family:var(--mono);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+  .tk-sum p{font-size:13px;line-height:1.65;color:var(--muted);margin-bottom:9px}
+  .tk-sum p:last-child{margin-bottom:0}.tk-sum p b{color:var(--ink)}
+  /* checklist sections */
+  .tk-sec{background:var(--panel);border:1px solid var(--line);border-radius:11px;margin-bottom:13px;overflow:hidden}
+  .tk-sec-h{padding:13px 17px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;border-bottom:1px solid var(--line-soft)}
+  .tk-sec-h:hover{background:var(--panel-2)}
+  .tk-sec.collapsed .tk-sec-h{border-bottom-color:transparent}
+  .tk-sec-h .t{display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px}
+  .tk-sec-h .ic{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .tk-sec-h .meta{display:flex;align-items:center;gap:9px}
+  .tk-mini{height:5px;width:54px;background:var(--panel-2);border-radius:3px;overflow:hidden}
+  .tk-mini>div{height:100%;transition:.3s}
+  .tk-sec-h .ct{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .tk-chev{font-size:10px;color:var(--muted-2);transition:.2s}
+  .tk-sec.collapsed .tk-chev{transform:rotate(-90deg)}
+  .tk-sec.collapsed .tk-tasks{display:none}
+  .tk-task{display:flex;gap:12px;padding:12px 17px;border-bottom:1px solid var(--line-soft);cursor:pointer;transition:.12s;align-items:flex-start}
+  .tk-task:last-child{border-bottom:none}
+  .tk-task:hover{background:var(--panel-2)}
+  .tk-cb{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--muted-2);flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;transition:.15s;font-size:11px}
+  .tk-task.done .tk-cb{background:var(--teal);border-color:var(--teal);color:#06231d}
+  .tk-task.done .lbl{text-decoration:line-through;color:var(--muted-2)}
+  .tk-task .main{flex:1;min-width:0}
+  .tk-task .lbl{font-size:13px;font-weight:500;line-height:1.4}
+  .tk-task .note{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45}
+  .tk-why{font-size:10px;color:var(--blue);background:var(--blue-dim);border:none;border-radius:5px;padding:3px 8px;margin-top:7px;cursor:pointer;font-family:var(--mono)}
+  .tk-detail{font-size:12px;color:var(--muted);margin-top:9px;padding:11px 13px;background:var(--bg);border-left:2px solid var(--blue);border-radius:0 7px 7px 0;line-height:1.6;display:none}
+  .tk-detail.open{display:block}.tk-detail b{color:var(--ink)}
+  .tk-pri{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;padding:3px 7px;border-radius:5px;flex-shrink:0;margin-top:1px}
+  .tk-pri.high{background:var(--red-dim);color:var(--red)}
+  .tk-pri.med{background:var(--signal-dim);color:var(--signal)}
+  .tk-pri.low{background:var(--teal-dim);color:var(--teal)}
+  /* reference */
+  .tk-h{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:22px 0 11px}
+  .tk-h:first-child{margin-top:0}
+  .def-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:640px){.def-grid{grid-template-columns:1fr}}
+  .def{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;border-top:3px solid var(--blue)}
+  .def .old{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted-2)}
+  .def .old s{color:var(--red)}
+  .def .new{font-size:14px;font-weight:700;color:var(--ink);margin:4px 0 7px}
+  .def .bd{font-size:12px;color:var(--muted);line-height:1.55}.def .bd b{color:var(--ink)}
+  .tk-table{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .tk-table th{background:var(--panel-2);color:var(--muted);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:10px 13px;text-align:left}
+  .tk-table td{padding:10px 13px;border-top:1px solid var(--line-soft);vertical-align:top}
+  .cls{font-family:var(--mono);font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:5px}
+  .cls.d{background:var(--red-dim);color:var(--red)}.cls.c{background:var(--signal-dim);color:var(--signal)}
+  .cls.b{background:var(--blue-dim);color:var(--blue)}.cls.a{background:var(--violet-dim);color:var(--violet)}
+  .tv{font-family:var(--mono);font-weight:600}.tv.fast{color:var(--red)}.tv.med{color:var(--signal)}.tv.ok{color:var(--teal)}
+  /* background accordion */
+  .bg-c{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:11px;overflow:hidden}
+  .bg-c-h{padding:13px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+  .bg-c-h:hover{background:var(--panel-2)}
+  .bg-c-h h4{font-size:13px;font-weight:600}
+  .bg-c-h .c{font-size:10px;color:var(--muted-2);transition:.2s}
+  .bg-c.open .bg-c-h .c{transform:rotate(180deg)}
+  .bg-c-b{display:none;padding:0 16px 16px;font-size:12.5px;line-height:1.65;color:var(--muted)}
+  .bg-c.open .bg-c-b{display:block}.bg-c-b p{margin-bottom:9px}.bg-c-b b{color:var(--ink)}
+  .bg-hl{background:var(--blue-dim);border-left:2px solid var(--blue);border-radius:0 6px 6px 0;padding:9px 12px;margin:9px 0;color:var(--ink)}
+  .bg-warn{background:var(--signal-dim);border-left:2px solid var(--signal);border-radius:0 6px 6px 0;padding:9px 12px;margin:9px 0;color:var(--ink)}
+
+  /* ===== INGESTION FLOW VISUAL (Data Sources tab) ===== */
+  .flowpanel{margin-bottom:18px}
+  .flowpanel .flowhead{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+  .flowpanel .flowhead h2{margin:0}
+  .flowpanel .flowhead .sub{margin:0;flex:1;min-width:160px}
+  .pipe{display:flex;align-items:stretch;gap:0;margin-bottom:14px}
+  .node{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:13px 12px;text-align:center;position:relative;transition:.3s;min-width:0}
+  .node .ic{font-size:18px;margin-bottom:7px;filter:grayscale(1);opacity:.6;transition:.3s}
+  .node .nm{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);transition:.3s}
+  .node .sub{font-size:9.5px;color:var(--muted-2);margin-top:3px;font-family:var(--mono);min-height:12px;transition:.3s}
+  .node.active{border-color:var(--signal);background:#1d2233;box-shadow:0 0 0 1px var(--signal),0 6px 24px -6px rgba(245,166,35,.5);transform:translateY(-3px)}
+  .node.active .ic{filter:none;opacity:1;transform:scale(1.12)}
+  .node.active .nm{color:var(--signal)}
+  .node.done{border-color:var(--teal-dim)}
+  .node.done .ic{filter:none;opacity:.9}
+  .node.done .nm{color:var(--teal)}
+  .conn{width:34px;display:flex;align-items:center;justify-content:center;flex:0 0 34px}
+  .conn .bar{width:100%;height:3px;background:var(--line);border-radius:3px;position:relative;overflow:hidden}
+  .conn .bar::after{content:"";position:absolute;inset:0;width:0;background:linear-gradient(90deg,var(--signal),var(--teal));transition:width .45s ease}
+  .conn.flow .bar::after{width:100%}
+  .flowlog{background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;padding:10px 14px;font-family:var(--mono);font-size:11.5px;line-height:1.85;min-height:92px}
+  .flowlog .ln{opacity:0;transform:translateY(5px);animation:flowrise .3s forwards;color:var(--muted)}
+  .flowlog .ln b{color:var(--ink)}
+  .flowlog .ln.ok b{color:var(--teal)} .flowlog .ln.warn b{color:var(--signal)} .flowlog .ln.jira b{color:var(--blue)}
+  .flowlog .ln .t{color:var(--muted-2)}
+  @keyframes flowrise{to{opacity:1;transform:none}}
+  @media(max-width:760px){.pipe{flex-wrap:wrap;gap:8px}.conn{display:none}.node{flex:1 1 40%}}
+  /* ===== CONTROLS TAB ===== */
+  .ctrl-toolbar{display:flex;gap:9px;align-items:center;margin-bottom:13px;flex-wrap:wrap}
+  .ctrl-note{font-family:var(--mono);font-size:11px;color:var(--muted-2);margin-bottom:16px}
+  .ctrl-note b{color:var(--signal)} .ctrl-note code{color:var(--blue)}
+  #ctrlFamily{background:var(--panel);color:var(--ink);border:1px solid var(--line);font-family:var(--mono);font-size:11px;padding:7px 10px;border-radius:7px}
+  .fam{margin-bottom:18px}
+  .fam h3{font-family:var(--mono);font-size:12px;letter-spacing:.4px;color:var(--muted);text-transform:uppercase;margin-bottom:9px;display:flex;gap:8px;align-items:center}
+  .fam h3 .cnt{background:var(--panel-2);color:var(--ink);font-size:10px;padding:1px 7px;border-radius:20px}
+  .crow{display:grid;grid-template-columns:92px 1fr auto;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin-bottom:7px;cursor:pointer;transition:.15s}
+  .crow:hover{border-color:var(--muted-2);transform:translateY(-1px)}
+  .cref{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--blue)}
+  .crow h4{font-size:13px;font-weight:600}
+  .bls{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+  .bl{font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;letter-spacing:.3px}
+  .bl.lisaas{background:var(--violet-dim);color:var(--violet)}
+  .bl.low{background:var(--teal-dim);color:var(--teal)}
+  .bl.moderate{background:var(--blue-dim);color:var(--blue)}
+  .bl.high{background:var(--signal-dim);color:var(--signal)}
+  .chgdot{font-family:var(--mono);font-size:9px;color:var(--signal);background:var(--signal-dim);padding:2px 7px;border-radius:20px;margin-left:8px;vertical-align:middle;font-weight:600}
+  .cx-fw{margin-bottom:12px}
+  .cx-fw .fwname{font-family:var(--mono);font-size:11px;color:var(--ink);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+  .cx-row{display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:7px;margin-bottom:5px;font-size:12px}
+  .cx-row .xref{font-family:var(--mono);font-weight:600;color:var(--teal)}
+  .cx-rel{font-family:var(--mono);font-size:9px;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:var(--panel);color:var(--muted);margin-left:auto}
+  .cx-conf{font-family:var(--mono);font-size:10px;color:var(--muted-2)}
+  .chg-link{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--blue);background:var(--blue-dim);border:none;border-radius:6px;padding:5px 9px;margin:3px 6px 0 0;cursor:pointer}
+  .chg-link:hover{color:var(--ink)}
+  /* ===== BLAST RADIUS (tracker tab) ===== */
+  .br-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+  .br-stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;text-align:center}
+  .br-stat .n{font-size:26px;font-weight:800;letter-spacing:-1px;color:var(--signal);line-height:1}
+  .br-stat .l{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:6px}
+  .br-ctrls{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+  .br-ctrl{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-dim);border:1px solid var(--line-soft);border-radius:6px;padding:4px 9px;cursor:pointer;transition:.12s}
+  .br-ctrl:hover{border-color:var(--blue);color:var(--ink)}
+  /* ===== SME REVIEW QUEUE ===== */
+  .rev-group{margin-bottom:16px;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--panel)}
+  .rev-ghead{display:flex;align-items:center;gap:10px;padding:11px 15px;background:var(--panel-2);border-bottom:1px solid var(--line)}
+  .rev-ghead .gid{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--signal)}
+  .rev-ghead .gtitle{font-size:13px;color:var(--ink)}
+  .rev-ghead .gcount{font-family:var(--mono);font-size:10px;background:var(--panel);color:var(--muted);padding:2px 8px;border-radius:20px}
+  .rev-approve-all{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--teal-dim);border:none;border-radius:6px;padding:5px 10px;cursor:pointer}
+  .rev-approve-all:hover{filter:brightness(1.15)}
+  .rev-row{display:grid;grid-template-columns:108px 1fr auto;gap:13px;align-items:center;padding:12px 15px;border-bottom:1px solid var(--line-soft)}
+  .rev-row:last-child{border-bottom:none}
+  .rev-row .rref{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--blue)}
+  .rev-row h4{font-size:13px;font-weight:600}
+  .rev-meta{display:flex;gap:7px;align-items:center;margin-top:4px;flex-wrap:wrap}
+  .conf-badge{font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px}
+  .conf-badge.lo{background:var(--signal-dim);color:var(--signal)}
+  .conf-badge.mid{background:var(--blue-dim);color:var(--blue)}
+  .src-chip{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.3px;padding:2px 7px;border-radius:4px;background:var(--panel-2);color:var(--muted);border:1px solid var(--line-soft)}
+  .rev-why{font-family:var(--mono);font-size:10px;color:var(--muted-2)}
+  .rev-actions{display:flex;gap:6px}
+  .rev-actions button{font-family:var(--mono);font-size:11px;border:none;border-radius:6px;padding:6px 11px;cursor:pointer;transition:.12s}
+  .b-app{background:var(--teal-dim);color:var(--teal)} .b-app:hover{filter:brightness(1.2)}
+  .b-edit{background:var(--blue-dim);color:var(--blue)} .b-edit:hover{filter:brightness(1.2)}
+  .b-rej{background:var(--panel-2);color:var(--muted)} .b-rej:hover{color:var(--signal);background:var(--signal-dim)}
+  .rev-editor{display:flex;gap:7px;align-items:center}
+  .rev-editor input{background:var(--bg);color:var(--ink);border:1px solid var(--blue);border-radius:6px;padding:6px 9px;font-family:var(--mono);font-size:12px;width:120px}
+  .rev-empty{text-align:center;padding:50px 20px;color:var(--muted)}
+  .rev-empty .big{font-size:30px;margin-bottom:10px}
+  /* ===== POSTURE HOME ===== */
+  .pos-head{display:flex;align-items:center;justify-content:space-between;gap:20px}
+  .pos-cov{display:flex;align-items:center;gap:10px}
+  .pos-cov-l{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;line-height:1.3}
+  .ring{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-weight:800;font-size:17px;color:var(--ink);
+    background:radial-gradient(closest-side,var(--panel) 79%,transparent 80% 100%),conic-gradient(var(--teal) var(--cov,0%),var(--line) 0)}
+  /* status pills */
+  .stp{font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.2px;white-space:nowrap}
+  .st-impl{background:var(--teal-dim);color:var(--teal)} .st-part{background:var(--blue-dim);color:var(--blue)}
+  .st-plan{background:var(--signal-dim);color:var(--signal)} .st-na{background:var(--panel-2);color:var(--muted-2)}
+  .st-inh{background:var(--violet-dim);color:var(--violet)}
+  .fbar{display:flex;align-items:center;gap:10px;margin-bottom:7px;cursor:pointer}
+  .fbar:hover .fbar-fam{color:var(--ink)}
+  .fbar-fam{width:42px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted)}
+  .fbar-track{flex:1;height:16px;border-radius:4px;overflow:hidden;display:flex;background:var(--panel-2)}
+  .fbar-seg{height:100%}
+  .seg-impl{background:var(--teal)} .seg-part{background:var(--blue)} .seg-plan{background:var(--signal)} .seg-na{background:var(--line)} .seg-inh{background:var(--violet)}
+  .fbar-n{width:34px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--muted-2)}
+  .att-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line-soft);font-size:12px}
+  .att-row:last-child{border:none}
+  .att-row .aref{font-family:var(--mono);font-weight:600;color:var(--blue);cursor:pointer}
+  .att-row .ameta{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted-2)}
+  .sev{width:7px;height:7px;border-radius:50%;flex:none}
+  .sev-high{background:var(--signal)} .sev-moderate{background:var(--blue)} .sev-low{background:var(--muted-2)}
+  .poam-close{font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--panel-2);border:none;border-radius:5px;padding:3px 8px;cursor:pointer;margin-left:auto}
+  .poam-close:hover{color:var(--teal)}
+  /* status editor in drawer */
+  .stedit{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:6px}
+  .stedit label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px}
+  .stedit select,.stedit input{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-family:var(--mono);font-size:12px}
+  .st-save{margin-top:9px;font-family:var(--mono);font-size:12px;color:var(--teal);background:var(--teal-dim);border:none;border-radius:7px;padding:8px 14px;cursor:pointer}
+  .st-save:hover{filter:brightness(1.15)}
+  .crow-meta{display:flex;gap:7px;align-items:center;margin-top:5px}
+  .crow-owner{font-family:var(--mono);font-size:10px;color:var(--muted-2)}
+</style>
+</head>
+<body>
+<a href="./" title="All Lighthouse tools" style="position:fixed;left:14px;bottom:14px;z-index:99999;font:600 11px/1 'IBM Plex Mono',monospace;color:#8c98ad;background:#141922;border:1px solid #252d3d;border-radius:7px;padding:8px 11px;text-decoration:none">&#8962; Lighthouse home</a>
+
+<header>
+  <div class="brand">
+    <span class="mark">CL</span>
+    <h1>Cribl Lighthouse</h1>
+    <span id="todayStr"></span>
+  </div>
+  <div class="sync">
+    <span><span class="dot"></span>3 sources connected</span>
+    <span id="lastSync"></span>
+    <button class="btn" onclick="simulateSync()">↻ Sync now</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="tab active" data-view="posture">Posture</div>
+  <div class="tab" data-view="feed">Intake Feed <span class="ct" id="ctFeed">0</span></div>
+  <div class="tab" data-view="impact">Impact &amp; Integration</div>
+  <div class="tab" data-view="board">Action Board <span class="ct" id="ctBoard">0</span></div>
+  <div class="tab" data-view="sources">Data Sources</div>
+  <div class="tab" data-view="controls">Controls <span class="ct" id="ctCtrl">0</span></div>
+  <div class="tab" data-view="review">Review <span class="ct" id="ctReview">0</span></div>
+</nav>
+
+<main>
+  <!-- ============ FEED VIEW ============ -->
+  <section id="view-posture">
+    <div class="pos-head">
+      <div><h2 style="font-size:17px;margin-bottom:2px">Compliance posture</h2>
+        <p class="sub" id="posSys">Cribl LogStream Cloud — Gov · FedRAMP High baseline</p></div>
+      <div class="pos-cov"><div class="ring" id="posRing"><span id="posCovPct">0%</span></div><div class="pos-cov-l">controls<br>implemented</div></div>
+    </div>
+    <div class="br-stats" id="posStats" style="margin:16px 0 20px"></div>
+    <div class="grid2">
+      <div class="panel"><h2>Coverage by control family</h2><p class="sub">Click a family to open it filtered in Controls.</p><div id="posFamilies"></div></div>
+      <div>
+        <div class="panel" style="margin-bottom:14px"><h2>Reviews overdue</h2><p class="sub">Implemented controls past their review date.</p><div id="posOverdue"></div></div>
+        <div class="panel"><h2>Open POA&amp;Ms</h2><p class="sub">Uplift work items, highest severity first.</p><div id="posPoams"></div></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:14px"><h2>Recently changed — revalidate</h2>
+      <p class="sub">Implemented/partial controls touched by tracked changes. Confirm they still hold.</p>
+      <div id="posRevalidate" class="br-ctrls"></div></div>
+  </section>
+  <section id="view-feed" class="hidden">
+    <div class="stats" id="statStrip"></div>
+    <div class="toolbar">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+        <input id="searchBox" placeholder="Search RFCs, notices, regulations, control families…" oninput="renderFeed()">
+      </div>
+      <div class="chip on" data-kind="ALL" onclick="toggleKind(this)">All</div>
+      <div class="chip" data-kind="RFC" onclick="toggleKind(this)">RFC</div>
+      <div class="chip" data-kind="NOTICE" onclick="toggleKind(this)">Notice</div>
+      <div class="chip" data-kind="REG" onclick="toggleKind(this)">Regulation</div>
+      <div class="chip" data-status="action" onclick="toggleAction(this)">⚑ Needs action</div>
+    </div>
+    <div class="feed" id="feedList"></div>
+  </section>
+
+  <!-- ============ IMPACT VIEW ============ -->
+  <section id="view-impact" class="hidden">
+    <p class="sub" style="color:var(--muted);margin-bottom:16px;font-size:13px">
+      How each incoming change maps onto your internal systems and control families. Cell value = number of open changes touching that system. This is where you decide <i>who owns what</i>.
+    </p>
+    <div class="matrix">
+      <table id="matrixTable"></table>
+    </div>
+    <p class="note">Heat is computed from each item's <code>impactAreas[]</code>. In production, map these to your actual SSP components / control implementation IDs so a change auto-flags the exact controls and engineers responsible.</p>
+  </section>
+
+  <!-- ============ BOARD VIEW ============ -->
+  <section id="view-board" class="hidden">
+    <p class="sub" style="color:var(--muted);margin-bottom:16px;font-size:13px">
+      Actionable items derived from changes. Drag cards between columns. In production these sync bidirectionally with Jira / Linear / GitHub Issues.
+    </p>
+    <div class="board" id="kanban"></div>
+  </section>
+
+  <!-- ============ SOURCES VIEW ============ -->
+  <section id="view-sources" class="hidden">
+    <div class="panel flowpanel">
+      <div class="flowhead">
+        <h2>Live ingestion flow</h2>
+        <p class="sub">How a change travels from the source feeds into this dashboard — click to watch a cycle.</p>
+        <button class="btn primary" id="flowBtn" onclick="runFlow()">▶ Run sync flow</button>
+      </div>
+      <div class="pipe" id="pipe">
+      <div class="node" data-node="0"><div class="ic">📡</div><div class="nm">Sources</div><div class="sub" id="fsub0">RSS · API · GitHub</div></div>
+      <div class="conn" data-conn="0"><div class="bar"></div></div>
+      <div class="node" data-node="1"><div class="ic">⚙️</div><div class="nm">Poller</div><div class="sub" id="fsub1">EventBridge · 3h</div></div>
+      <div class="conn" data-conn="1"><div class="bar"></div></div>
+      <div class="node" data-node="2"><div class="ic">🧠</div><div class="nm">Classify</div><div class="sub" id="fsub2">impact + priority</div></div>
+      <div class="conn" data-conn="2"><div class="bar"></div></div>
+      <div class="node" data-node="3"><div class="ic">🗄️</div><div class="nm">DynamoDB</div><div class="sub" id="fsub3">store + diff</div></div>
+      <div class="conn" data-conn="3"><div class="bar"></div></div>
+      <div class="node" data-node="4"><div class="ic">🔔</div><div class="nm">Notify</div><div class="sub" id="fsub4">Slack + Jira</div></div>
+      <div class="conn" data-conn="4"><div class="bar"></div></div>
+      <div class="node" data-node="5"><div class="ic">📊</div><div class="nm">Dashboard</div><div class="sub" id="fsub5">this app</div></div>
+      </div>
+      <div class="flowlog" id="flowLog"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2>Connected feeds</h2>
+        <p class="sub">Live endpoints this prototype is modeled on (verified June 2026).</p>
+        <div id="srcList"></div>
+        <p class="note">FedRAMP RSS feeds send no CORS headers, so the browser can't read them directly.
+        The backend polls them server-side and re-serves them at <code>/feeds</code> with CORS — set
+        <code>CONTROLS_API</code> and these two switch from "via backend" to live. No public proxy involved.
+        Federal Register &amp; GitHub APIs are CORS-enabled and key-free.</p>
+      </div>
+      <div class="panel">
+        <h2>Ingestion architecture</h2>
+        <p class="sub">The minimum viable pipeline.</p>
+        <div class="arch">
+          <div><b>cron</b> <span class="ar">every 3h →</span> poll feeds</div>
+          <div><span class="ar">↓</span></div>
+          <div><b>normalize</b> → unified schema</div>
+          <div><span class="ar">↓</span></div>
+          <div><b>diff</b> → detect new / changed</div>
+          <div><span class="ar">↓</span></div>
+          <div><b>classify</b> → impactAreas, priority</div>
+          <div><span class="ar">↓</span></div>
+          <div><b>store</b> → Postgres / KV</div>
+          <div><span class="ar">↓</span></div>
+          <div><b>notify</b> → Slack + create tasks</div>
+          <div><span class="ar">↓</span></div>
+          <div><b>API</b> → this dashboard</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="view-controls" class="hidden">
+    <p style="color:var(--muted);margin-bottom:14px;font-size:13px">FedRAMP Rev5 control library — the spine for cross-framework crosswalks and RFC blast radius. Click a control for its crosswalks, the changes that touch it, and the internal systems it maps to.</p>
+    <div class="ctrl-toolbar">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+        <input id="ctrlSearch" placeholder="Search controls by ID or title…" oninput="renderControls()">
+      </div>
+      <select id="ctrlFamily" class="chip" onchange="renderControls()" style="cursor:pointer"></select>
+      <div class="chip on" data-bl="ALL" onclick="ctrlBaseline(this)">All baselines</div>
+      <div class="chip" data-bl="LI-SAAS" onclick="ctrlBaseline(this)">LI-SaaS</div>
+      <div class="chip" data-bl="LOW" onclick="ctrlBaseline(this)">Low</div>
+      <div class="chip" data-bl="MODERATE" onclick="ctrlBaseline(this)">Moderate</div>
+      <div class="chip" data-bl="HIGH" onclick="ctrlBaseline(this)">High</div>
+      <select id="ctrlStatus" class="chip" onchange="renderControls()" style="cursor:pointer"><option value="ALL">All status</option><option value="implemented">Implemented</option><option value="partial">Partial</option><option value="planned">Planned</option><option value="not_applicable">N/A</option></select>
+    </div>
+    <p class="ctrl-note" id="ctrlSrc">Source: <b>bundled sample</b> · set <code>CONTROLS_API</code> to load the live FedRAMP Rev5 catalog.</p>
+    <div id="ctrlList"></div>
+  </section>
+  <section id="view-review" class="hidden">
+    <p style="color:var(--muted);margin-bottom:14px;font-size:13px">The classifier auto-applies high-confidence control mappings; lower-confidence inferences land here for a control owner to <b>approve</b>, <b>reassign</b>, or <b>reject</b>. Approving a mapping feeds it into blast radius immediately.</p>
+    <div class="br-stats" style="margin-bottom:16px">
+      <div class="br-stat"><div class="n" id="revPending">0</div><div class="l">Pending review</div></div>
+      <div class="br-stat"><div class="n" style="color:var(--teal)" id="revAuto">7</div><div class="l">Auto-applied</div></div>
+      <div class="br-stat"><div class="n" style="color:var(--teal)" id="revApproved">0</div><div class="l">Approved this session</div></div>
+      <div class="br-stat"><div class="n" style="color:var(--muted-2)" id="revRejected">0</div><div class="l">Rejected this session</div></div>
+    </div>
+    <div class="ctrl-toolbar">
+      <div class="chip on" data-src="ALL" onclick="revSource(this)">All sources</div>
+      <div class="chip" data-src="keyword" onclick="revSource(this)">Keyword</div>
+      <div class="chip" data-src="llm" onclick="revSource(this)">LLM</div>
+      <span id="revMsg" style="font-family:var(--mono);font-size:11px;color:var(--teal);margin-left:auto"></span>
+    </div>
+    <div id="revList"></div>
+    <datalist id="ctrlRefs"></datalist>
+  </section>
+</main>
+
+<!-- detail drawer -->
+<div class="drawer-bg" id="drawerBg" onclick="closeDrawer()"></div>
+<!-- ===== IMPLEMENTATION TRACKER OVERLAY ===== -->
+<div class="tk-bg" id="tkBg" onclick="closeTracker()"></div>
+<aside class="tk" id="tk">
+  <button class="tk-close" onclick="closeTracker()">×</button>
+  <div class="tk-head" id="tkHead"></div>
+  <div class="tk-tabs" id="tkTabs"></div>
+  <div class="tk-body" id="tkBody"></div>
+</aside>
+
+<aside class="drawer" id="drawer">
+  <button class="close" onclick="closeDrawer()">×</button>
+  <div id="drawerBody"></div>
+</aside>
+
+<script>
+/* =====================================================================
+   DATA MODEL
+   One normalized record type for everything that flows in, regardless
+   of whether it originated as a FedRAMP RFC, a public notice, or a
+   Federal Register regulation. This is the schema your backend writes.
+   ===================================================================== */
+const TODAY = new Date('2026-06-04');
+
+const ITEMS = [
+  { id:'NTC-0012', kind:'NOTICE', title:'Initial Outcome — RFC-0031 Updated Incident Communications Procedures',
+    summary:'New incident-reporting framework effective Jul 4 2026 (mandatory: 20x now; Rev5 & pilot 20x by Jan 1 2027). Potential Adverse Impact becomes Potential Agency Impact (PAIN); report timeframes scale by Certification Class (Class D: 15-min initial); providers no longer report to CISA directly; automated incident communication strongly encouraged.',
+    published:'2026-06-03', deadline:'2026-07-04', state:'open',
+    impactAreas:['Incident Response','ConMon Pipeline','SSP / MR Package'],
+    url:'https://www.fedramp.gov/notices/0012', needsAction:true },
+  { id:'RFC-0027', kind:'RFC', title:'Rev5 Security Controls Baseline Update — AC, AT, AU, CA, CM families',
+    summary:'Proposes baseline changes across five control families. Directly affects existing SSP control implementations and ConMon evidence.',
+    published:'2026-03-19', deadline:'2026-06-20', state:'open',
+    impactAreas:['Control Baseline','SSP / MR Package','ConMon Pipeline'],
+    url:'https://www.fedramp.gov/rfcs/0027', needsAction:true },
+  { id:'RFC-0028', kind:'RFC', title:'Rev5 Security Controls Baseline Update — CP, IA, IR, MA, MP families',
+    summary:'Baseline updates to contingency, identity, incident response, maintenance, media protection families.',
+    published:'2026-03-19', deadline:'2026-06-20', state:'open',
+    impactAreas:['Control Baseline','Incident Response','SSP / MR Package'],
+    url:'https://www.fedramp.gov/rfcs/0028', needsAction:true },
+  { id:'RFC-0031', kind:'RFC', title:'Updated Incident Communications Procedures',
+    summary:'Revises how and when CSPs must communicate incidents to FedRAMP / agencies. Outcome published as NTC-0012.',
+    published:'2026-04-08', deadline:'2026-06-10', state:'soon',
+    impactAreas:['Incident Response','ConMon Pipeline'],
+    url:'https://www.fedramp.gov/rfcs/0031', needsAction:true },
+  { id:'RFC-0026', kind:'RFC', title:'Clarifying CA-7 Continuous Monitoring Expectations for Rev5 Providers',
+    summary:'Clarifies CA-7 ConMon expectations. Likely changes evidence cadence and automation requirements.',
+    published:'2026-03-19', deadline:'2026-06-20', state:'open',
+    impactAreas:['ConMon Pipeline','Control Baseline'],
+    url:'https://www.fedramp.gov/rfcs/0026', needsAction:true },
+  { id:'NTC-0009', kind:'NOTICE', title:'Initial Outcome — RFC-0024 Rev5 Machine-Readable Packages',
+    summary:'Machine-readable authorization data required for Class D (High) certs. Per-service materials + integrate significant changes. Finalized in CR26.',
+    published:'2026-03-25', deadline:'2026-09-30', state:'open',
+    impactAreas:['SSP / MR Package','Authorization Boundary'],
+    url:'https://www.fedramp.gov/notices/0009', needsAction:true },
+  { id:'NTC-0008', kind:'NOTICE', title:'Initial Outcome — RFC-0023 Rev5 Program Certifications (No Sponsor)',
+    summary:'FedRAMP Ready retires 2026-07-28; new Ready submissions stop. Sponsorless program certs introduced; sunset Dec 16 2027.',
+    published:'2026-03-06', deadline:'2026-07-28', state:'soon',
+    impactAreas:['Marketplace Listing','Authorization Boundary'],
+    url:'https://www.fedramp.gov/notices/0008', needsAction:true },
+  { id:'NTC-0010', kind:'NOTICE', title:'FedRAMP Response to CISA ED 25-03',
+    summary:'FedRAMP response to a CISA Emergency Directive. May require expedited remediation + reporting from CSPs.',
+    published:'2026-04-23', deadline:'2026-05-15', state:'overdue',
+    impactAreas:['Vuln Management','Incident Response'],
+    url:'https://www.fedramp.gov/notices/0010', needsAction:true },
+  { id:'NTC-0006', kind:'NOTICE', title:'CISA Emergency Directive 26-03 — Cisco SD-WAN',
+    summary:'Mitigate vulnerabilities in Cisco SD-WAN systems. Inventory + patch affected components within directive timeline.',
+    published:'2026-02-25', deadline:'2026-03-10', state:'closed',
+    impactAreas:['Vuln Management'],
+    url:'https://www.fedramp.gov/notices/0006', needsAction:false },
+  { id:'NTC-0004', kind:'NOTICE', title:'Initial Outcome — RFC-0020 Authorization Designations',
+    summary:'Impact levels move from FIPS-199 Low/Mod/High to numbered classes A–D; new formal authorization labels (now "Certification").',
+    published:'2026-02-25', deadline:'2026-06-30', state:'open',
+    impactAreas:['Marketplace Listing','Authorization Boundary','SSP / MR Package'],
+    url:'https://www.fedramp.gov/notices/0004', needsAction:true },
+  { id:'NTC-0011', kind:'NOTICE', title:'Initial Outcome — Public Comment Process Retrospective (RFC-0025)',
+    summary:'Process changes to how FedRAMP runs public comment. Informational; adjust how your team submits feedback.',
+    published:'2026-05-27', deadline:null, state:'closed',
+    impactAreas:[],
+    url:'https://www.fedramp.gov/notices/0011', needsAction:false },
+  { id:'CR26', kind:'REG', title:'Consolidated Rules for 2026 (CR26) — Public Preview',
+    summary:'Single consolidated ruleset replacing prior fragmented guidance; valid through Dec 31 2028. Finalizes outcomes of RFCs 0019–0024. Full gap analysis required.',
+    published:'2026-05-04', deadline:'2026-06-30', state:'soon',
+    impactAreas:['Control Baseline','SSP / MR Package','ConMon Pipeline','Marketplace Listing','Authorization Boundary'],
+    url:'https://preview.fedramp.gov/2026', needsAction:true },
+  { id:'FR-2026-GSA', kind:'REG', title:'Federal Register: GSA / FedRAMP rule activity',
+    summary:'Live query against the Federal Register API for GSA documents referencing FedRAMP. Seeded placeholder — wire to /api/v1/documents.json?conditions[term]=FedRAMP.',
+    published:'2026-05-20', deadline:null, state:'open',
+    impactAreas:['Authorization Boundary'],
+    url:'https://www.federalregister.gov/documents/search?conditions%5Bterm%5D=FedRAMP', needsAction:false },
+];
+
+const SYSTEMS = ['Control Baseline','ConMon Pipeline','SSP / MR Package','Incident Response','Vuln Management','Marketplace Listing','Authorization Boundary'];
+
+const TEAM = {AR:'A. Reyes', JK:'J. Kang', MO:'M. Osei', SV:'S. Vance'};
+
+/* Actionable tasks derived from items. status ∈ triage|progress|blocked|done */
+let TASKS = [
+  {id:'T1', itemId:'NTC-0010', title:'Confirm Cisco SD-WAN exposure & file remediation evidence', who:'SV', pri:'P1', status:'progress'},
+  {id:'T2', itemId:'NTC-0008', title:'Decide: sponsorless program cert vs. finish Ready before 07-28', who:'AR', pri:'P1', status:'triage'},
+  {id:'T3', itemId:'CR26', title:'Run full gap analysis against CR26 preview', who:'JK', pri:'P1', status:'progress'},
+  {id:'T4', itemId:'NTC-0009', title:'Scope machine-readable package generation for Class D services', who:'MO', pri:'P2', status:'triage'},
+  {id:'T5', itemId:'RFC-0027', title:'Draft public comment on AC/AU/CM baseline deltas', who:'JK', pri:'P2', status:'triage'},
+  {id:'T6', itemId:'RFC-0031', title:'Update Incident Response Plan comms section', who:'SV', pri:'P2', status:'blocked'},
+  {id:'T7', itemId:'NTC-0004', title:'Migrate marketplace listing to A–D class labels', who:'AR', pri:'P3', status:'triage'},
+  {id:'T8', itemId:'RFC-0026', title:'Audit CA-7 ConMon automation against new expectations', who:'MO', pri:'P2', status:'progress'},
+  {id:'T9', itemId:'NTC-0006', title:'Cisco SD-WAN patch verification', who:'SV', pri:'P3', status:'done'},
+];
+
+const SOURCES = [
+  {abbr:'CHG', name:'FedRAMP Changelog', url:'fedramp.gov/changelog/rss.xml', mode:'api'},
+  {abbr:'NTC', name:'FedRAMP Public Notices', url:'fedramp.gov/notices/rss.xml', mode:'api'},
+  {abbr:'GH', name:'FedRAMP Community (RFC threads)', url:'api.github.com · FedRAMP/community', mode:'ok'},
+  {abbr:'FRMR', name:'Machine-Readable Standards', url:'github.com/FedRAMP/docs (FRMR JSON)', mode:'ok'},
+  {abbr:'FR', name:'Federal Register API', url:'federalregister.gov/api/v1 · term=FedRAMP', mode:'ok'},
+];
+
+/* =====================================================================
+   STATE + HELPERS
+   ===================================================================== */
+let filterKind = 'ALL', filterAction = false;
+
+function liveState(it){
+  if(it.state==='closed') return 'closed';
+  if(!it.deadline) return 'open';
+  const d = new Date(it.deadline);
+  const days = Math.round((d - TODAY)/864e5);
+  if(days < 0) return 'overdue';
+  if(days <= 21) return 'soon';
+  return 'open';
+}
+function daysTo(dateStr){
+  if(!dateStr) return null;
+  return Math.round((new Date(dateStr) - TODAY)/864e5);
+}
+function fmtDate(s){ if(!s) return '—'; return new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+
+/* =====================================================================
+   FEED VIEW
+   ===================================================================== */
+function renderStats(){
+  const open = ITEMS.filter(i=>liveState(i)!=='closed').length;
+  const soon = ITEMS.filter(i=>liveState(i)==='soon').length;
+  const over = ITEMS.filter(i=>liveState(i)==='overdue').length;
+  const act  = ITEMS.filter(i=>i.needsAction).length;
+  const todo = TASKS.filter(t=>t.status!=='done').length;
+  const data = [
+    {n:open,l:'Active changes',c:'var(--teal)'},
+    {n:soon,l:'Closing ≤ 21 days',c:'var(--signal)'},
+    {n:over,l:'Past deadline',c:'var(--red)'},
+    {n:act,l:'Flagged for action',c:'var(--blue)'},
+    {n:todo,l:'Open tasks',c:'var(--ink)'},
+  ];
+  document.getElementById('statStrip').innerHTML = data.map(s=>
+    `<div class="stat" style="--accent:${s.c}"><div class="n" style="color:${s.c}">${s.n}</div><div class="l">${s.l}</div></div>`).join('');
+}
+
+function renderFeed(){
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  let list = ITEMS.filter(it=>{
+    if(filterKind!=='ALL' && it.kind!==filterKind) return false;
+    if(filterAction && !it.needsAction) return false;
+    if(q){
+      const hay = (it.id+it.title+it.summary+it.impactAreas.join(' ')).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  // sort: overdue → soon → open → closed, then by deadline
+  const rank = {overdue:0,soon:1,open:2,closed:3};
+  list.sort((a,b)=> rank[liveState(a)]-rank[liveState(b)] || (new Date(a.deadline||'2099')-new Date(b.deadline||'2099')));
+
+  document.getElementById('feedList').innerHTML = list.map(it=>{
+    const st = liveState(it);
+    const stLabel = {open:'Active',soon:'Closing soon',overdue:'Overdue',closed:'Closed'}[st];
+    const d = daysTo(it.deadline);
+    let dlClass='', dlText='No deadline';
+    if(it.deadline){
+      dlClass = d<0?'past':(d<=21?'urgent':'');
+      dlText = d<0?`${Math.abs(d)}d overdue`:`${d}d left`;
+    }
+    return `<div class="card" onclick="openTracker('${it.id}')">
+      <div><div class="kind ${it.kind}">${it.kind}</div><span class="id">${it.id}</span></div>
+      <div>
+        <h3>${it.title}</h3>
+        <p>${it.summary}</p>
+        <div class="meta">${it.impactAreas.map(a=>`<span class="tag">${a}</span>`).join('') || '<span class="tag">no mapped systems</span>'}</div>
+      </div>
+      <div class="right">
+        <span class="status ${st}">${stLabel}</span>
+        <span class="deadline ${dlClass}">${fmtDate(it.deadline)}<br><b>${dlText}</b></span>
+      </div>
+    </div>`;
+  }).join('') || '<p style="color:var(--muted);padding:30px;text-align:center">No items match.</p>';
+
+  document.getElementById('ctFeed').textContent = ITEMS.filter(i=>liveState(i)!=='closed').length;
+}
+
+function toggleKind(el){
+  document.querySelectorAll('.chip[data-kind]').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on'); filterKind = el.dataset.kind; renderFeed();
+}
+function toggleAction(el){ filterAction=!filterAction; el.classList.toggle('on'); renderFeed(); }
+
+/* =====================================================================
+   IMPACT MATRIX
+   ===================================================================== */
+function renderMatrix(){
+  const open = ITEMS.filter(i=>liveState(i)!=='closed');
+  const rows = SYSTEMS.map(sys=>{
+    const hits = open.filter(i=>i.impactAreas.includes(sys));
+    const urgent = hits.filter(i=>['soon','overdue'].includes(liveState(i))).length;
+    const load = Math.min(100, hits.length*22);
+    const color = hits.length===0?'var(--panel-2)':(urgent>0?'var(--signal-dim)':'var(--teal-dim)');
+    const txt = hits.length===0?'var(--muted-2)':(urgent>0?'var(--signal)':'var(--teal)');
+    return `<tr>
+      <td class="sysname">${sys}</td>
+      <td><span class="heat" style="background:${color};color:${txt}">${hits.length}</span></td>
+      <td>${urgent? `<span class="heat" style="background:var(--signal-dim);color:var(--signal)">${urgent}</span>`:'<span style="color:var(--muted-2)">0</span>'}</td>
+      <td style="max-width:260px"><div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${hits.map(h=>h.id).join(' · ')||'—'}</div><div class="load-meter"><div style="width:${load}%"></div></div></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('matrixTable').innerHTML =
+    `<thead><tr><th>Internal system / control area</th><th>Open changes</th><th>Time-critical</th><th>Sources &amp; load</th></tr></thead><tbody>${rows}</tbody>`;
+}
+
+/* =====================================================================
+   KANBAN BOARD (drag + drop, in-memory)
+   ===================================================================== */
+const COLS = [
+  {key:'triage', label:'Triage', c:'var(--blue)'},
+  {key:'progress', label:'In Progress', c:'var(--signal)'},
+  {key:'blocked', label:'Blocked', c:'var(--red)'},
+  {key:'done', label:'Done', c:'var(--teal)'},
+];
+function renderBoard(){
+  document.getElementById('kanban').innerHTML = COLS.map(col=>{
+    const tasks = TASKS.filter(t=>t.status===col.key);
+    return `<div class="col" data-col="${col.key}"
+        ondragover="event.preventDefault();this.classList.add('dragover')"
+        ondragleave="this.classList.remove('dragover')"
+        ondrop="dropTask(event,'${col.key}')">
+      <div class="accent" style="background:${col.c}"></div>
+      <h4>${col.label}<span class="cnt">${tasks.length}</span></h4>
+      ${tasks.map(t=>{
+        const it = ITEMS.find(i=>i.id===t.itemId);
+        return `<div class="task" draggable="true" data-id="${t.id}"
+            ondragstart="dragTask(event,'${t.id}')" ondragend="this.classList.remove('dragging')"
+            onclick="openTracker('${t.itemId}')">
+          <div class="src">${t.itemId}</div>
+          <div class="ttl">${t.title}</div>
+          <div class="foot">
+            <span class="who"><span class="ava">${t.who}</span>${TEAM[t.who]}</span>
+            <span class="pri ${t.pri}">${t.pri}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+  document.getElementById('ctBoard').textContent = TASKS.filter(t=>t.status!=='done').length;
+}
+let dragId=null;
+function dragTask(e,id){ dragId=id; e.target.classList.add('dragging'); }
+function dropTask(e,col){
+  e.preventDefault();
+  document.querySelectorAll('.col').forEach(c=>c.classList.remove('dragover'));
+  const t = TASKS.find(x=>x.id===dragId);
+  if(t){ t.status=col; renderBoard(); renderStats(); }
+}
+
+/* =====================================================================
+   SOURCES PANEL
+   ===================================================================== */
+const FEED_LIVE = {};  // abbr -> {state:'live'|'off', n}
+function liveBadge(s){
+  if(s.mode==='ok') return {cls:'ok', txt:'CORS · direct'};
+  if(s.mode==='api'){
+    const v = FEED_LIVE[s.abbr];
+    if(v && v.state==='live') return {cls:'lived', txt:`live · ${v.n}`};
+    if(v && v.state==='off')  return {cls:'off',   txt:'API unreachable'};
+    return {cls:'api', txt: CONTROLS_API ? 'via API · /feeds' : 'via backend · /feeds'};
+  }
+  return {cls:'proxy', txt:'needs proxy'};
+}
+function renderSources(){
+  document.getElementById('srcList').innerHTML = SOURCES.map(s=>{
+    const b = liveBadge(s);
+    return `<div class="src-row">
+      <div class="ico">${s.abbr}</div>
+      <div class="info"><b>${s.name}</b><code>${s.url}</code></div>
+      <span class="live ${b.cls}">${b.txt}</span>
+    </div>`;}).join('');
+}
+// Poll the FedRAMP feeds through our own backend (CORS-enabled), never the
+// browser hitting fedramp.gov directly. Only runs when CONTROLS_API is set.
+async function loadLiveFeeds(){
+  if(!CONTROLS_API) return;
+  try{
+    const r = await fetch(CONTROLS_API.replace(/\/$/,'') + '/feeds');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data = await r.json();
+    for(const k in data){
+      const f = data[k] || {};
+      const ab = f.abbr || (k==='changelog'?'CHG':k==='notices'?'NTC':k.toUpperCase());
+      FEED_LIVE[ab] = {state: f.error ? 'off' : 'live', n: (f.items||[]).length};
+    }
+  }catch(e){
+    ['CHG','NTC'].forEach(a=> FEED_LIVE[a] = {state:'off', n:0});
+  }
+  renderSources();
+}
+
+/* =====================================================================
+   DETAIL DRAWER
+   ===================================================================== */
+function openDrawer(id){
+  const it = ITEMS.find(i=>i.id===id); if(!it) return;
+  const st = liveState(it);
+  const related = TASKS.filter(t=>t.itemId===id);
+  document.getElementById('drawerBody').innerHTML = `
+    <div class="kind ${it.kind}" style="display:inline-block;padding:5px 12px">${it.kind} · ${it.id}</div>
+    <h2>${it.title}</h2>
+    <div class="field"><div class="k">Summary</div><div class="v">${it.summary}</div></div>
+    <div class="field"><div class="k">Status</div><div class="v"><span class="status ${st}">${st}</span> &nbsp; Published ${fmtDate(it.published)}${it.deadline?` · Deadline ${fmtDate(it.deadline)}`:''}</div></div>
+    <div class="field"><div class="k">Impacted systems</div><div class="v meta">${it.impactAreas.map(a=>`<span class="tag">${a}</span>`).join('')||'None mapped'}</div></div>
+    <div class="field"><div class="k">Source</div><div class="v"><a href="${it.url}" target="_blank" rel="noopener">${it.url} ↗</a></div></div>
+    <div class="field"><div class="k">Linked action items (${related.length})</div>
+      <div class="act-list">${related.map(t=>`<div class="ai"><span>${t.title}</span><span class="pri ${t.pri}">${t.pri} · ${t.status}</span></div>`).join('')||'<div class="ai" style="color:var(--muted)">No tasks yet — create one to track this change.</div>'}</div>
+    </div>`;
+  document.getElementById('drawer').classList.add('show');
+  document.getElementById('drawerBg').classList.add('show');
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('show');
+  document.getElementById('drawerBg').classList.remove('show');
+}
+
+/* =====================================================================
+   TABS + SYNC SIM
+   ===================================================================== */
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    ['posture','feed','impact','board','sources','controls','review'].forEach(v=>document.getElementById('view-'+v).classList.add('hidden'));
+    document.getElementById('view-'+tab.dataset.view).classList.remove('hidden');
+    if(tab.dataset.view==='controls' && !window._ctrlInit){ window._ctrlInit=true; initControls(); }
+    if(tab.dataset.view==='review' && !window._revInit){ window._revInit=true; initReview(); }
+    if(tab.dataset.view==='posture'){ renderPosture(); }
+  };
+});
+function setSync(){
+  document.getElementById('lastSync').textContent = 'Last sync '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+function simulateSync(){
+  const btn = event.target; btn.textContent='↻ Syncing…';
+  runFlow();
+  setTimeout(()=>{ btn.textContent='↻ Sync now'; },1300);
+}
+
+/* init */
+document.getElementById('todayStr').textContent = TODAY.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+flog('Pipeline idle. Open Data Sources and click <b>Run sync flow</b>.','ok');
+
+/* ===================== INGESTION FLOW VISUAL ===================== */
+const FNODES=6;
+const FSUBS=['RSS · API · GitHub','EventBridge · 3h','impact + priority','store + diff','Slack + Jira','this app'];
+function fnode(i,cls){const n=document.querySelector('#pipe .node[data-node="'+i+'"]');if(!n)return;n.classList.remove('active','done');if(cls)n.classList.add(cls);}
+function fsub(i,t){const e=document.getElementById('fsub'+i);if(e)e.textContent=t;}
+function fflow(i){document.querySelector('#pipe .conn[data-conn="'+i+'"]')?.classList.add('flow');}
+function fresetPipe(){for(let i=0;i<FNODES;i++)fnode(i,'');document.querySelectorAll('#pipe .conn').forEach(c=>c.classList.remove('flow'));FSUBS.forEach((t,i)=>fsub(i,t));}
+function flog(txt,cls){const el=document.getElementById('flowLog');if(!el)return;const d=document.createElement('div');d.className='ln '+(cls||'');d.innerHTML='<span class="t">'+new Date().toLocaleTimeString('en-US',{hour12:false})+'</span> '+txt;el.prepend(d);while(el.children.length>5)el.removeChild(el.lastChild);}
+const fwait=ms=>new Promise(r=>setTimeout(r,ms));
+let flowRunning=false;
+async function runFlow(){
+  if(flowRunning)return; flowRunning=true;
+  const btn=document.getElementById('flowBtn'); if(btn){btn.disabled=true;btn.textContent='▶ Running…';}
+  fresetPipe();
+  const n=ITEMS.filter(i=>liveState(i)!=='closed').length;
+  fnode(0,'active'); flog('Requesting FedRAMP RSS, Federal Register API, GitHub…'); await fwait(650);
+  fsub(0,'3 feeds ok'); fnode(0,'done'); fflow(0);
+  fnode(1,'active'); flog('Poller pulled <b>'+n+'</b> active changes','warn'); await fwait(650);
+  fsub(1,'normalized'); fnode(1,'done'); fflow(1);
+  fnode(2,'active'); flog('Classifying impact areas + priority…'); await fwait(650);
+  fsub(2,'mapped'); fnode(2,'done'); fflow(2);
+  fnode(3,'active'); flog('Diffed against store — new / changed flagged','ok'); await fwait(650);
+  fsub(3,'persisted'); fnode(3,'done'); fflow(3);
+  fnode(4,'active'); flog('Notified Slack · synced Jira tickets','jira'); await fwait(650);
+  fsub(4,'sent'); fnode(4,'done'); fflow(4);
+  fnode(5,'active'); flog('Dashboard refreshed — sync complete.','ok'); await fwait(500);
+  fnode(5,'done'); setSync();
+  if(btn){btn.disabled=false;btn.textContent='▶ Run sync flow';}
+  flowRunning=false;
+}
+
+
+
+/* ===================== POSTURE / CONTROL STATUS (keystone) ===================== */
+const SYSTEM={id:'logstream-cloud-gov',name:'Cribl LogStream Cloud — Gov',baseline:'HIGH'};
+const STATUS_META={implemented:{label:'Implemented',cls:'st-impl',seg:'seg-impl'},partial:{label:'Partial',cls:'st-part',seg:'seg-part'},planned:{label:'Planned',cls:'st-plan',seg:'seg-plan'},not_applicable:{label:'N/A',cls:'st-na',seg:'seg-na'},inherited:{label:'Inherited',cls:'st-inh',seg:'seg-inh'}};
+const STATUS_ORDER=['implemented','partial','planned','inherited','not_applicable'];
+const OWNERS=['A. Rivera','J. Kim','S. Vance','M. Osei','L. Chen','P. Nair'];
+const STATUS_WEIGHTED=['implemented','implemented','implemented','implemented','partial','partial','planned','not_applicable'];
+function hashRef(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h;}
+let STATUS={};
+function seedStatus(){
+  (typeof CONTROLS!=='undefined'?CONTROLS:CONTROL_DATA).forEach(c=>{ if(STATUS[c.ref])return;
+    const h=hashRef(c.ref), st=STATUS_WEIGHTED[h%STATUS_WEIGHTED.length], lastDays=(h%200)+20;
+    const last=new Date(Date.now()-lastDays*864e5), next=new Date(last.getTime()+180*864e5);
+    STATUS[c.ref]={status:st,owner:OWNERS[h%OWNERS.length],lastReviewed:last.toISOString().slice(0,10),
+      nextReview:next.toISOString().slice(0,10),evidence:(st==='implemented'||st==='partial')?'wiki/controls/'+c.ref.toLowerCase().replace(/[()]/g,''):'',notes:''};
+  });
+}
+let POAMS=[
+ {id:1,controlRef:'RA-5',title:'Remediate actively-exploited CVE (CISA ED)',severity:'high',status:'open',owner:'S. Vance',due:'2026-06-18',changeId:'NTC-0010'},
+ {id:2,controlRef:'SI-2',title:'Clear flaw-remediation backlog to SLA',severity:'high',status:'open',owner:'S. Vance',due:'2026-06-20',changeId:'NTC-0010'},
+ {id:3,controlRef:'IR-8',title:'Update IR plan for NTC-0012 comms procedures',severity:'moderate',status:'in_progress',owner:'J. Kim',due:'2026-07-01',changeId:'NTC-0012'},
+ {id:4,controlRef:'CA-7',title:'Automate ConMon monthly scan reporting',severity:'moderate',status:'open',owner:'A. Rivera',due:'2026-07-15',changeId:'RFC-0026'},
+ {id:5,controlRef:'AC-6',title:'Close least-privilege gaps on prod roles',severity:'moderate',status:'open',owner:'M. Osei',due:'2026-06-30',changeId:''},
+];
+function stOf(ref){return (STATUS[ref]||{}).status||'planned';}
+function postureCounts(){const by={};CONTROLS.forEach(c=>{const s=stOf(c.ref);by[s]=(by[s]||0)+1;});return by;}
+function changedControlsSet(){const set=new Set();for(const cid in CHANGE_CONTROLS){const m=CHANGE_CONTROLS[cid];(m.refs||[]).forEach(r=>set.add(r));(m.families||[]).forEach(fam=>CONTROLS.filter(c=>c.family===fam).forEach(c=>set.add(c.ref)));}return set;}
+function renderPosture(){
+  if(!Object.keys(STATUS).length) seedStatus();
+  const by=postureCounts(), total=CONTROLS.length, na=by.not_applicable||0, applicable=total-na;
+  const cov=applicable?Math.round(100*(by.implemented||0)/applicable):0;
+  const ring=document.getElementById('posRing'); ring.style.setProperty('--cov',cov+'%'); document.getElementById('posCovPct').textContent=cov+'%';
+  const card=(n,l,c)=>'<div class="br-stat"><div class="n" style="color:'+c+'">'+n+'</div><div class="l">'+l+'</div></div>';
+  document.getElementById('posStats').innerHTML=
+    card(by.implemented||0,'Implemented','var(--teal)')+card(by.partial||0,'Partial','var(--blue)')+
+    card(by.planned||0,'Planned / gap','var(--signal)')+card(na,'Not applicable','var(--muted-2)');
+  // by family
+  const fam={};CONTROLS.forEach(c=>{const s=stOf(c.ref);const f=fam[c.family]=fam[c.family]||{family:c.family,title:c.family_title||FAM_TITLE[c.family],counts:{},n:0};f.counts[s]=(f.counts[s]||0)+1;f.n++;});
+  document.getElementById('posFamilies').innerHTML=Object.keys(fam).sort().map(k=>{const f=fam[k];
+    const segs=STATUS_ORDER.map(s=>{const n=f.counts[s]||0;return n?'<div class="fbar-seg '+STATUS_META[s].seg+'" style="width:'+(100*n/f.n)+'%" title="'+STATUS_META[s].label+': '+n+'"></div>':'';}).join('');
+    return '<div class="fbar" onclick="gotoControls(\''+f.family+'\')"><span class="fbar-fam">'+f.family+'</span><div class="fbar-track">'+segs+'</div><span class="fbar-n">'+f.n+'</span></div>';}).join('');
+  // overdue
+  const today=new Date().toISOString().slice(0,10);
+  const od=CONTROLS.map(c=>({ref:c.ref,...STATUS[c.ref]})).filter(x=>x.status!=='not_applicable'&&x.nextReview&&x.nextReview<today).sort((a,b)=>a.nextReview<b.nextReview?-1:1).slice(0,8);
+  document.getElementById('posOverdue').innerHTML=od.length?od.map(x=>{const days=Math.round((Date.now()-new Date(x.nextReview))/864e5);return '<div class="att-row"><span class="aref" onclick="openControl(\''+x.ref+'\')">'+x.ref+'</span><span class="stp '+STATUS_META[x.status].cls+'">'+STATUS_META[x.status].label+'</span><span class="ameta">'+x.owner+' · '+days+'d overdue</span></div>';}).join(''):'<p class="sub" style="padding:8px 0">No overdue reviews.</p>';
+  // poams
+  const op=POAMS.filter(p=>p.status==='open'||p.status==='in_progress').sort((a,b)=>({high:0,moderate:1,low:2}[a.severity]-{high:0,moderate:1,low:2}[b.severity]));
+  document.getElementById('posPoams').innerHTML=op.length?op.map(p=>'<div class="att-row"><span class="sev sev-'+p.severity+'"></span><div><div onclick="openControl(\''+p.controlRef+'\')" style="cursor:pointer">'+p.title+'</div><div class="ameta" style="margin:2px 0 0">'+p.controlRef+' · '+p.owner+(p.due?' · due '+p.due:'')+(p.status==='in_progress'?' · in progress':'')+'</div></div><button class="poam-close" onclick="closePoam('+p.id+')">Close</button></div>').join(''):'<p class="sub" style="padding:8px 0">No open POA&Ms.</p>';
+  // revalidate
+  const changed=[...changedControlsSet()].filter(r=>['implemented','partial'].includes(stOf(r))).slice(0,14);
+  document.getElementById('posRevalidate').innerHTML=changed.length?changed.map(r=>'<span class="br-ctrl" onclick="openControl(\''+r+'\')">'+r+' <span class="stp '+STATUS_META[stOf(r)].cls+'" style="margin-left:4px">'+STATUS_META[stOf(r)].label+'</span></span>').join(''):'<span style="color:var(--muted-2);font-family:var(--mono);font-size:12px">Nothing flagged.</span>';
+}
+function gotoControls(fam){ document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); const ct=document.querySelector('.tab[data-view="controls"]'); ct.classList.add('active'); ['posture','feed','impact','board','sources','controls','review'].forEach(v=>document.getElementById('view-'+v).classList.add('hidden')); document.getElementById('view-controls').classList.remove('hidden'); if(!window._ctrlInit){window._ctrlInit=true;initControls();} document.getElementById('ctrlFamily').value=fam; renderControls(); }
+function closePoam(id){ const p=POAMS.find(x=>x.id===id); if(p){p.status='closed'; if(CONTROLS_API)fetch(CONTROLS_API+'/poam/'+id+'/close',{method:'POST'}).catch(()=>{});} renderPosture(); }
+function statusEditorHtml(ref){const s=STATUS[ref]||{status:'planned'};return '<div class="field"><div class="k">Implementation status</div><div class="v"><div class="stedit">'+
+ '<div><label>Status</label><select id="stStatus">'+STATUS_ORDER.map(o=>'<option value="'+o+'"'+(s.status===o?' selected':'')+'>'+STATUS_META[o].label+'</option>').join('')+'</select></div>'+
+ '<div><label>Owner</label><input id="stOwner" value="'+(s.owner||'')+'"></div>'+
+ '<div><label>Last reviewed</label><input id="stLast" type="date" value="'+(s.lastReviewed||'')+'"></div>'+
+ '<div><label>Next review</label><input id="stNext" type="date" value="'+(s.nextReview||'')+'"></div>'+
+ '<div style="grid-column:1/3"><label>Evidence</label><input id="stEvid" value="'+(s.evidence||'')+'" placeholder="link or reference"></div>'+
+ '<div style="grid-column:1/3"><label>Notes</label><input id="stNotes" value="'+(s.notes||'')+'"></div>'+
+ '</div><button class="st-save" onclick="saveStatus(\''+ref+'\')">Save status</button><span id="stMsg" style="font-family:var(--mono);font-size:11px;color:var(--teal);margin-left:10px"></span></div></div>';}
+function saveStatus(ref){
+  const g=id=>document.getElementById(id)?document.getElementById(id).value:'';
+  STATUS[ref]={status:g('stStatus'),owner:g('stOwner'),lastReviewed:g('stLast'),nextReview:g('stNext'),evidence:g('stEvid'),notes:g('stNotes')};
+  if(CONTROLS_API)fetch(CONTROLS_API+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_id:SYSTEM.id,control_ref:ref,...STATUS[ref],evidence_url:STATUS[ref].evidence,last_reviewed:STATUS[ref].lastReviewed,next_review:STATUS[ref].nextReview,updated_by:'grc'})}).catch(()=>{});
+  document.getElementById('stMsg').textContent='Saved ✓';
+  renderControls();
+}
+
+/* ===================== CONTROLS LIBRARY ===================== */
+const CONTROLS_API='';  // <-- set to deployed controls API base to load the live FedRAMP Rev5 catalog
+const FW_NAMES={'nist-csf-v2':'NIST CSF 2.0','soc2':'SOC 2','iso-27001':'ISO 27001:2022','pci-dss-4':'PCI DSS 4.0'};
+const FAM_TITLE={AC:'Access Control',AT:'Awareness and Training',AU:'Audit and Accountability',CA:'Assessment, Authorization, and Monitoring',CM:'Configuration Management',CP:'Contingency Planning',IA:'Identification and Authentication',IR:'Incident Response',RA:'Risk Assessment',SC:'System and Communications Protection',SI:'System and Information Integrity'};
+const A4=['LI-SAAS','LOW','MODERATE','HIGH'], MH=['MODERATE','HIGH'], LMH=['LOW','MODERATE','HIGH'];
+function mkC(ref,title,fam,bl){return {ref,title,family:fam,family_title:FAM_TITLE[fam],baselines:bl};}
+const CONTROL_DATA=[
+  // Full FedRAMP Rev5 catalog — 410 High-baseline controls (Moderate=323, Low=156 tagged).
+  // Built from GSA/fedramp-automation OSCAL baselines + NIST SP 800-53 Rev5 catalog.
+  {ref:"AC-1",title:"Policy and Procedures",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AC-2",title:"Account Management",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AC-2(1)",title:"Automated System Account Management",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-2(2)",title:"Automated Temporary and Emergency Account Management",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-2(3)",title:"Disable Accounts",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-2(4)",title:"Automated Audit Actions",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-2(5)",title:"Inactivity Logout",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-2(7)",title:"Privileged User Accounts",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-2(9)",title:"Restrictions on Use of Shared and Group Accounts",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-2(11)",title:"Usage Conditions",family:"AC",family_title:"Access Control",baselines:["HIGH"]},
+  {ref:"AC-2(12)",title:"Account Monitoring for Atypical Usage",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-2(13)",title:"Disable Accounts for High-risk Individuals",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-3",title:"Access Enforcement",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AC-4",title:"Information Flow Enforcement",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-4(4)",title:"Flow Control of Encrypted Information",family:"AC",family_title:"Access Control",baselines:["HIGH"]},
+  {ref:"AC-4(21)",title:"Physical or Logical Separation of Information Flows",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-5",title:"Separation of Duties",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-6",title:"Least Privilege",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-6(1)",title:"Authorize Access to Security Functions",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-6(2)",title:"Non-privileged Access for Nonsecurity Functions",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-6(3)",title:"Network Access to Privileged Commands",family:"AC",family_title:"Access Control",baselines:["HIGH"]},
+  {ref:"AC-6(5)",title:"Privileged Accounts",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-6(7)",title:"Review of User Privileges",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-6(8)",title:"Privilege Levels for Code Execution",family:"AC",family_title:"Access Control",baselines:["HIGH"]},
+  {ref:"AC-6(9)",title:"Log Use of Privileged Functions",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-6(10)",title:"Prohibit Non-privileged Users from Executing Privileged Functions",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-7",title:"Unsuccessful Logon Attempts",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AC-8",title:"System Use Notification",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AC-10",title:"Concurrent Session Control",family:"AC",family_title:"Access Control",baselines:["HIGH"]},
+  {ref:"AC-11",title:"Device Lock",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-11(1)",title:"Pattern-hiding Displays",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-12",title:"Session Termination",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-14",title:"Permitted Actions Without Identification or Authentication",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AC-17",title:"Remote Access",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AC-17(1)",title:"Monitoring and Control",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-17(2)",title:"Protection of Confidentiality and Integrity Using Encryption",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-17(3)",title:"Managed Access Control Points",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-17(4)",title:"Privileged Commands and Access",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-18",title:"Wireless Access",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AC-18(1)",title:"Authentication and Encryption",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-18(3)",title:"Disable Wireless Networking",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-18(4)",title:"Restrict Configurations by Users",family:"AC",family_title:"Access Control",baselines:["HIGH"]},
+  {ref:"AC-18(5)",title:"Antennas and Transmission Power Levels",family:"AC",family_title:"Access Control",baselines:["HIGH"]},
+  {ref:"AC-19",title:"Access Control for Mobile Devices",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AC-19(5)",title:"Full Device or Container-based Encryption",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-20",title:"Use of External Systems",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AC-20(1)",title:"Limits on Authorized Use",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-20(2)",title:"Portable Storage Devices — Restricted Use",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-21",title:"Information Sharing",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE"]},
+  {ref:"AC-22",title:"Publicly Accessible Content",family:"AC",family_title:"Access Control",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AT-1",title:"Policy and Procedures",family:"AT",family_title:"Awareness and Training",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AT-2",title:"Literacy Training and Awareness",family:"AT",family_title:"Awareness and Training",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AT-2(2)",title:"Insider Threat",family:"AT",family_title:"Awareness and Training",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AT-2(3)",title:"Social Engineering and Mining",family:"AT",family_title:"Awareness and Training",baselines:["HIGH","MODERATE"]},
+  {ref:"AT-3",title:"Role-based Training",family:"AT",family_title:"Awareness and Training",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AT-4",title:"Training Records",family:"AT",family_title:"Awareness and Training",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-1",title:"Policy and Procedures",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-2",title:"Event Logging",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-3",title:"Content of Audit Records",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-3(1)",title:"Additional Audit Information",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE"]},
+  {ref:"AU-4",title:"Audit Log Storage Capacity",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-5",title:"Response to Audit Logging Process Failures",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-5(1)",title:"Storage Capacity Warning",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"AU-5(2)",title:"Real-time Alerts",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"AU-6",title:"Audit Record Review, Analysis, and Reporting",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-6(1)",title:"Automated Process Integration",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE"]},
+  {ref:"AU-6(3)",title:"Correlate Audit Record Repositories",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE"]},
+  {ref:"AU-6(4)",title:"Central Review and Analysis",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"AU-6(5)",title:"Integrated Analysis of Audit Records",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"AU-6(6)",title:"Correlation with Physical Monitoring",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"AU-6(7)",title:"Permitted Actions",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"AU-7",title:"Audit Record Reduction and Report Generation",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE"]},
+  {ref:"AU-7(1)",title:"Automatic Processing",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE"]},
+  {ref:"AU-8",title:"Time Stamps",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-9",title:"Protection of Audit Information",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-9(2)",title:"Store on Separate Physical Systems or Components",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"AU-9(3)",title:"Cryptographic Protection",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"AU-9(4)",title:"Access by Subset of Privileged Users",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE"]},
+  {ref:"AU-10",title:"Non-repudiation",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"AU-11",title:"Audit Record Retention",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-12",title:"Audit Record Generation",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"AU-12(1)",title:"System-wide and Time-correlated Audit Trail",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"AU-12(3)",title:"Changes by Authorized Individuals",family:"AU",family_title:"Audit and Accountability",baselines:["HIGH"]},
+  {ref:"CA-1",title:"Policy and Procedures",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CA-2",title:"Control Assessments",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CA-2(1)",title:"Independent Assessors",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CA-2(2)",title:"Specialized Assessments",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH"]},
+  {ref:"CA-2(3)",title:"Leveraging Results from External Organizations",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE"]},
+  {ref:"CA-3",title:"Information Exchange",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CA-3(6)",title:"Transfer Authorizations",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH"]},
+  {ref:"CA-5",title:"Plan of Action and Milestones",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CA-6",title:"Authorization",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CA-7",title:"Continuous Monitoring",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CA-7(1)",title:"Independent Assessment",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE"]},
+  {ref:"CA-7(4)",title:"Risk Monitoring",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CA-8",title:"Penetration Testing",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CA-8(1)",title:"Independent Penetration Testing Agent or Team",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE"]},
+  {ref:"CA-8(2)",title:"Red Team Exercises",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE"]},
+  {ref:"CA-9",title:"Internal System Connections",family:"CA",family_title:"Assessment, Authorization, and Monitoring",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CM-1",title:"Policy and Procedures",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CM-2",title:"Baseline Configuration",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CM-2(2)",title:"Automation Support for Accuracy and Currency",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-2(3)",title:"Retention of Previous Configurations",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-2(7)",title:"Configure Systems and Components for High-risk Areas",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-3",title:"Configuration Change Control",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-3(1)",title:"Automated Documentation, Notification, and Prohibition of Changes",family:"CM",family_title:"Configuration Management",baselines:["HIGH"]},
+  {ref:"CM-3(2)",title:"Testing, Validation, and Documentation of Changes",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-3(4)",title:"Security and Privacy Representatives",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-3(6)",title:"Cryptography Management",family:"CM",family_title:"Configuration Management",baselines:["HIGH"]},
+  {ref:"CM-4",title:"Impact Analyses",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CM-4(1)",title:"Separate Test Environments",family:"CM",family_title:"Configuration Management",baselines:["HIGH"]},
+  {ref:"CM-4(2)",title:"Verification of Controls",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-5",title:"Access Restrictions for Change",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CM-5(1)",title:"Automated Access Enforcement and Audit Records",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-5(5)",title:"Privilege Limitation for Production and Operation",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-6",title:"Configuration Settings",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CM-6(1)",title:"Automated Management, Application, and Verification",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-6(2)",title:"Respond to Unauthorized Changes",family:"CM",family_title:"Configuration Management",baselines:["HIGH"]},
+  {ref:"CM-7",title:"Least Functionality",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CM-7(1)",title:"Periodic Review",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-7(2)",title:"Prevent Program Execution",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-7(5)",title:"Authorized Software — Allow-by-exception",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-8",title:"System Component Inventory",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CM-8(1)",title:"Updates During Installation and Removal",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-8(2)",title:"Automated Maintenance",family:"CM",family_title:"Configuration Management",baselines:["HIGH"]},
+  {ref:"CM-8(3)",title:"Automated Unauthorized Component Detection",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-8(4)",title:"Accountability Information",family:"CM",family_title:"Configuration Management",baselines:["HIGH"]},
+  {ref:"CM-9",title:"Configuration Management Plan",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-10",title:"Software Usage Restrictions",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CM-11",title:"User-installed Software",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CM-12",title:"Information Location",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-12(1)",title:"Automated Tools to Support Information Location",family:"CM",family_title:"Configuration Management",baselines:["HIGH","MODERATE"]},
+  {ref:"CM-14",title:"Signed Components",family:"CM",family_title:"Configuration Management",baselines:["HIGH"]},
+  {ref:"CP-1",title:"Policy and Procedures",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CP-2",title:"Contingency Plan",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CP-2(1)",title:"Coordinate with Related Plans",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-2(2)",title:"Capacity Planning",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-2(3)",title:"Resume Mission and Business Functions",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-2(5)",title:"Continue Mission and Business Functions",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-2(8)",title:"Identify Critical Assets",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-3",title:"Contingency Training",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CP-3(1)",title:"Simulated Events",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-4",title:"Contingency Plan Testing",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CP-4(1)",title:"Coordinate with Related Plans",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-4(2)",title:"Alternate Processing Site",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-6",title:"Alternate Storage Site",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-6(1)",title:"Separation from Primary Site",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-6(2)",title:"Recovery Time and Recovery Point Objectives",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-6(3)",title:"Accessibility",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-7",title:"Alternate Processing Site",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-7(1)",title:"Separation from Primary Site",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-7(2)",title:"Accessibility",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-7(3)",title:"Priority of Service",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-7(4)",title:"Preparation for Use",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-8",title:"Telecommunications Services",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-8(1)",title:"Priority of Service Provisions",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-8(2)",title:"Single Points of Failure",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-8(3)",title:"Separation of Primary and Alternate Providers",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-8(4)",title:"Provider Contingency Plan",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-9",title:"System Backup",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CP-9(1)",title:"Testing for Reliability and Integrity",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-9(2)",title:"Test Restoration Using Sampling",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-9(3)",title:"Separate Storage for Critical Information",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-9(5)",title:"Transfer to Alternate Storage Site",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"CP-9(8)",title:"Cryptographic Protection",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-10",title:"System Recovery and Reconstitution",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"CP-10(2)",title:"Transaction Recovery",family:"CP",family_title:"Contingency Planning",baselines:["HIGH","MODERATE"]},
+  {ref:"CP-10(4)",title:"Restore Within Time Period",family:"CP",family_title:"Contingency Planning",baselines:["HIGH"]},
+  {ref:"IA-1",title:"Policy and Procedures",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-2",title:"Identification and Authentication (Organizational Users)",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-2(1)",title:"Multi-factor Authentication to Privileged Accounts",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-2(2)",title:"Multi-factor Authentication to Non-privileged Accounts",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-2(5)",title:"Individual Authentication with Group Authentication",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IA-2(6)",title:"Access to Accounts —separate Device",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IA-2(8)",title:"Access to Accounts — Replay Resistant",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-2(12)",title:"Acceptance of PIV Credentials",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-3",title:"Device Identification and Authentication",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IA-4",title:"Identifier Management",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-4(4)",title:"Identify User Status",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IA-5",title:"Authenticator Management",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-5(1)",title:"Password-based Authentication",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-5(2)",title:"Public Key-based Authentication",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IA-5(6)",title:"Protection of Authenticators",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IA-5(7)",title:"No Embedded Unencrypted Static Authenticators",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IA-5(8)",title:"Multiple System Accounts",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH"]},
+  {ref:"IA-5(13)",title:"Expiration of Cached Authenticators",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH"]},
+  {ref:"IA-6",title:"Authentication Feedback",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-7",title:"Cryptographic Module Authentication",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-8",title:"Identification and Authentication (Non-organizational Users)",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-8(1)",title:"Acceptance of PIV Credentials from Other Agencies",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-8(2)",title:"Acceptance of External Authenticators",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-8(4)",title:"Use of Defined Profiles",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-11",title:"Re-authentication",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IA-12",title:"Identity Proofing",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IA-12(2)",title:"Identity Evidence",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IA-12(3)",title:"Identity Evidence Validation and Verification",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IA-12(4)",title:"In-person Validation and Verification",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH"]},
+  {ref:"IA-12(5)",title:"Address Confirmation",family:"IA",family_title:"Identification and Authentication",baselines:["HIGH","MODERATE"]},
+  {ref:"IR-1",title:"Policy and Procedures",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IR-2",title:"Incident Response Training",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IR-2(1)",title:"Simulated Events",family:"IR",family_title:"Incident Response",baselines:["HIGH"]},
+  {ref:"IR-2(2)",title:"Automated Training Environments",family:"IR",family_title:"Incident Response",baselines:["HIGH"]},
+  {ref:"IR-3",title:"Incident Response Testing",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE"]},
+  {ref:"IR-3(2)",title:"Coordination with Related Plans",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE"]},
+  {ref:"IR-4",title:"Incident Handling",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IR-4(1)",title:"Automated Incident Handling Processes",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE"]},
+  {ref:"IR-4(2)",title:"Dynamic Reconfiguration",family:"IR",family_title:"Incident Response",baselines:["HIGH"]},
+  {ref:"IR-4(4)",title:"Information Correlation",family:"IR",family_title:"Incident Response",baselines:["HIGH"]},
+  {ref:"IR-4(6)",title:"Insider Threats",family:"IR",family_title:"Incident Response",baselines:["HIGH"]},
+  {ref:"IR-4(11)",title:"Integrated Incident Response Team",family:"IR",family_title:"Incident Response",baselines:["HIGH"]},
+  {ref:"IR-5",title:"Incident Monitoring",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IR-5(1)",title:"Automated Tracking, Data Collection, and Analysis",family:"IR",family_title:"Incident Response",baselines:["HIGH"]},
+  {ref:"IR-6",title:"Incident Reporting",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IR-6(1)",title:"Automated Reporting",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE"]},
+  {ref:"IR-6(3)",title:"Supply Chain Coordination",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE"]},
+  {ref:"IR-7",title:"Incident Response Assistance",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IR-7(1)",title:"Automation Support for Availability of Information and Support",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE"]},
+  {ref:"IR-8",title:"Incident Response Plan",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"IR-9",title:"Information Spillage Response",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE"]},
+  {ref:"IR-9(2)",title:"Training",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE"]},
+  {ref:"IR-9(3)",title:"Post-spill Operations",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE"]},
+  {ref:"IR-9(4)",title:"Exposure to Unauthorized Personnel",family:"IR",family_title:"Incident Response",baselines:["HIGH","MODERATE"]},
+  {ref:"MA-1",title:"Policy and Procedures",family:"MA",family_title:"Maintenance",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"MA-2",title:"Controlled Maintenance",family:"MA",family_title:"Maintenance",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"MA-2(2)",title:"Automated Maintenance Activities",family:"MA",family_title:"Maintenance",baselines:["HIGH"]},
+  {ref:"MA-3",title:"Maintenance Tools",family:"MA",family_title:"Maintenance",baselines:["HIGH","MODERATE"]},
+  {ref:"MA-3(1)",title:"Inspect Tools",family:"MA",family_title:"Maintenance",baselines:["HIGH","MODERATE"]},
+  {ref:"MA-3(2)",title:"Inspect Media",family:"MA",family_title:"Maintenance",baselines:["HIGH","MODERATE"]},
+  {ref:"MA-3(3)",title:"Prevent Unauthorized Removal",family:"MA",family_title:"Maintenance",baselines:["HIGH","MODERATE"]},
+  {ref:"MA-4",title:"Nonlocal Maintenance",family:"MA",family_title:"Maintenance",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"MA-4(3)",title:"Comparable Security and Sanitization",family:"MA",family_title:"Maintenance",baselines:["HIGH"]},
+  {ref:"MA-5",title:"Maintenance Personnel",family:"MA",family_title:"Maintenance",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"MA-5(1)",title:"Individuals Without Appropriate Access",family:"MA",family_title:"Maintenance",baselines:["HIGH","MODERATE"]},
+  {ref:"MA-6",title:"Timely Maintenance",family:"MA",family_title:"Maintenance",baselines:["HIGH","MODERATE"]},
+  {ref:"MP-1",title:"Policy and Procedures",family:"MP",family_title:"Media Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"MP-2",title:"Media Access",family:"MP",family_title:"Media Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"MP-3",title:"Media Marking",family:"MP",family_title:"Media Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"MP-4",title:"Media Storage",family:"MP",family_title:"Media Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"MP-5",title:"Media Transport",family:"MP",family_title:"Media Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"MP-6",title:"Media Sanitization",family:"MP",family_title:"Media Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"MP-6(1)",title:"Review, Approve, Track, Document, and Verify",family:"MP",family_title:"Media Protection",baselines:["HIGH"]},
+  {ref:"MP-6(2)",title:"Equipment Testing",family:"MP",family_title:"Media Protection",baselines:["HIGH"]},
+  {ref:"MP-6(3)",title:"Nondestructive Techniques",family:"MP",family_title:"Media Protection",baselines:["HIGH"]},
+  {ref:"MP-7",title:"Media Use",family:"MP",family_title:"Media Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-1",title:"Policy and Procedures",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-2",title:"Physical Access Authorizations",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-3",title:"Physical Access Control",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-3(1)",title:"System Access",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH"]},
+  {ref:"PE-4",title:"Access Control for Transmission",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"PE-5",title:"Access Control for Output Devices",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"PE-6",title:"Monitoring Physical Access",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-6(1)",title:"Intrusion Alarms and Surveillance Equipment",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"PE-6(4)",title:"Monitoring Physical Access to Systems",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH"]},
+  {ref:"PE-8",title:"Visitor Access Records",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-8(1)",title:"Automated Records Maintenance and Review",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH"]},
+  {ref:"PE-9",title:"Power Equipment and Cabling",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"PE-10",title:"Emergency Shutoff",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"PE-11",title:"Emergency Power",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"PE-11(1)",title:"Alternate Power Supply — Minimal Operational Capability",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH"]},
+  {ref:"PE-12",title:"Emergency Lighting",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-13",title:"Fire Protection",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-13(1)",title:"Detection Systems — Automatic Activation and Notification",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"PE-13(2)",title:"Suppression Systems — Automatic Activation and Notification",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"PE-14",title:"Environmental Controls",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-14(2)",title:"Monitoring with Alarms and Notifications",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH"]},
+  {ref:"PE-15",title:"Water Damage Protection",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-15(1)",title:"Automation Support",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH"]},
+  {ref:"PE-16",title:"Delivery and Removal",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PE-17",title:"Alternate Work Site",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"PE-18",title:"Location of System Components",family:"PE",family_title:"Physical and Environmental Protection",baselines:["HIGH"]},
+  {ref:"PL-1",title:"Policy and Procedures",family:"PL",family_title:"Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PL-2",title:"System Security and Privacy Plans",family:"PL",family_title:"Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PL-4",title:"Rules of Behavior",family:"PL",family_title:"Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PL-4(1)",title:"Social Media and External Site/Application Usage Restrictions",family:"PL",family_title:"Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PL-8",title:"Security and Privacy Architectures",family:"PL",family_title:"Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PL-10",title:"Baseline Selection",family:"PL",family_title:"Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PL-11",title:"Baseline Tailoring",family:"PL",family_title:"Planning",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PS-1",title:"Policy and Procedures",family:"PS",family_title:"Personnel Security",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PS-2",title:"Position Risk Designation",family:"PS",family_title:"Personnel Security",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PS-3",title:"Personnel Screening",family:"PS",family_title:"Personnel Security",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PS-3(3)",title:"Information Requiring Special Protective Measures",family:"PS",family_title:"Personnel Security",baselines:["HIGH","MODERATE"]},
+  {ref:"PS-4",title:"Personnel Termination",family:"PS",family_title:"Personnel Security",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PS-4(2)",title:"Automated Actions",family:"PS",family_title:"Personnel Security",baselines:["HIGH"]},
+  {ref:"PS-5",title:"Personnel Transfer",family:"PS",family_title:"Personnel Security",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PS-6",title:"Access Agreements",family:"PS",family_title:"Personnel Security",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PS-7",title:"External Personnel Security",family:"PS",family_title:"Personnel Security",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PS-8",title:"Personnel Sanctions",family:"PS",family_title:"Personnel Security",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"PS-9",title:"Position Descriptions",family:"PS",family_title:"Personnel Security",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"RA-1",title:"Policy and Procedures",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"RA-2",title:"Security Categorization",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"RA-3",title:"Risk Assessment",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"RA-3(1)",title:"Supply Chain Risk Assessment",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"RA-5",title:"Vulnerability Monitoring and Scanning",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"RA-5(2)",title:"Update Vulnerabilities to Be Scanned",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"RA-5(3)",title:"Breadth and Depth of Coverage",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE"]},
+  {ref:"RA-5(4)",title:"Discoverable Information",family:"RA",family_title:"Risk Assessment",baselines:["HIGH"]},
+  {ref:"RA-5(5)",title:"Privileged Access",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE"]},
+  {ref:"RA-5(8)",title:"Review Historic Audit Logs",family:"RA",family_title:"Risk Assessment",baselines:["HIGH"]},
+  {ref:"RA-5(11)",title:"Public Disclosure Program",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"RA-7",title:"Risk Response",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"RA-9",title:"Criticality Analysis",family:"RA",family_title:"Risk Assessment",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-1",title:"Policy and Procedures",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SA-2",title:"Allocation of Resources",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SA-3",title:"System Development Life Cycle",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SA-4",title:"Acquisition Process",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SA-4(1)",title:"Functional Properties of Controls",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-4(2)",title:"Design and Implementation Information for Controls",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-4(5)",title:"System, Component, and Service Configurations",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH"]},
+  {ref:"SA-4(9)",title:"Functions, Ports, Protocols, and Services in Use",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-4(10)",title:"Use of Approved PIV Products",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SA-5",title:"System Documentation",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SA-8",title:"Security and Privacy Engineering Principles",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SA-9",title:"External System Services",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SA-9(1)",title:"Risk Assessments and Organizational Approvals",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-9(2)",title:"Identification of Functions, Ports, Protocols, and Services",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-9(5)",title:"Processing, Storage, and Service Location",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-10",title:"Developer Configuration Management",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-11",title:"Developer Testing and Evaluation",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-11(1)",title:"Static Code Analysis",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-11(2)",title:"Threat Modeling and Vulnerability Analyses",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-15",title:"Development Process, Standards, and Tools",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-15(3)",title:"Criticality Analysis",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE"]},
+  {ref:"SA-16",title:"Developer-provided Training",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH"]},
+  {ref:"SA-17",title:"Developer Security and Privacy Architecture and Design",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH"]},
+  {ref:"SA-21",title:"Developer Screening",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH"]},
+  {ref:"SA-22",title:"Unsupported System Components",family:"SA",family_title:"System and Services Acquisition",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-1",title:"Policy and Procedures",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-2",title:"Separation of System and User Functionality",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-3",title:"Security Function Isolation",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH"]},
+  {ref:"SC-4",title:"Information in Shared System Resources",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-5",title:"Denial-of-service Protection",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-7",title:"Boundary Protection",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-7(3)",title:"Access Points",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-7(4)",title:"External Telecommunications Services",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-7(5)",title:"Deny by Default — Allow by Exception",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-7(7)",title:"Split Tunneling for Remote Devices",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-7(8)",title:"Route Traffic to Authenticated Proxy Servers",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-7(10)",title:"Prevent Exfiltration",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH"]},
+  {ref:"SC-7(12)",title:"Host-based Protection",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-7(18)",title:"Fail Secure",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-7(20)",title:"Dynamic Isolation and Segregation",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH"]},
+  {ref:"SC-7(21)",title:"Isolation of System Components",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH"]},
+  {ref:"SC-8",title:"Transmission Confidentiality and Integrity",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-8(1)",title:"Cryptographic Protection",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-10",title:"Network Disconnect",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-12",title:"Cryptographic Key Establishment and Management",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-12(1)",title:"Availability",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH"]},
+  {ref:"SC-13",title:"Cryptographic Protection",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-15",title:"Collaborative Computing Devices and Applications",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-17",title:"Public Key Infrastructure Certificates",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-18",title:"Mobile Code",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-20",title:"Secure Name/Address Resolution Service (Authoritative Source)",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-21",title:"Secure Name/Address Resolution Service (Recursive or Caching Resolver)",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-22",title:"Architecture and Provisioning for Name/Address Resolution Service",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-23",title:"Session Authenticity",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-24",title:"Fail in Known State",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH"]},
+  {ref:"SC-28",title:"Protection of Information at Rest",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-28(1)",title:"Cryptographic Protection",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-39",title:"Process Isolation",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SC-45",title:"System Time Synchronization",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SC-45(1)",title:"Synchronization with Authoritative Time Source",family:"SC",family_title:"System and Communications Protection",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-1",title:"Policy and Procedures",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SI-2",title:"Flaw Remediation",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SI-2(2)",title:"Automated Flaw Remediation Status",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-2(3)",title:"Time to Remediate Flaws and Benchmarks for Corrective Actions",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-3",title:"Malicious Code Protection",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SI-4",title:"System Monitoring",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SI-4(1)",title:"System-wide Intrusion Detection System",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-4(2)",title:"Automated Tools and Mechanisms for Real-time Analysis",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-4(4)",title:"Inbound and Outbound Communications Traffic",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-4(5)",title:"System-generated Alerts",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-4(10)",title:"Visibility of Encrypted Communications",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-4(11)",title:"Analyze Communications Traffic Anomalies",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-4(12)",title:"Automated Organization-generated Alerts",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-4(14)",title:"Wireless Intrusion Detection",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-4(16)",title:"Correlate Monitoring Information",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-4(18)",title:"Analyze Traffic and Covert Exfiltration",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-4(19)",title:"Risk for Individuals",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-4(20)",title:"Privileged Users",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-4(22)",title:"Unauthorized Network Services",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-4(23)",title:"Host-based Devices",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-5",title:"Security Alerts, Advisories, and Directives",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SI-5(1)",title:"Automated Alerts and Advisories",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-6",title:"Security and Privacy Function Verification",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-7",title:"Software, Firmware, and Information Integrity",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-7(1)",title:"Integrity Checks",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-7(2)",title:"Automated Notifications of Integrity Violations",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-7(5)",title:"Automated Response to Integrity Violations",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-7(7)",title:"Integration of Detection and Response",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-7(15)",title:"Code Authentication",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH"]},
+  {ref:"SI-8",title:"Spam Protection",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-8(2)",title:"Automatic Updates",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-10",title:"Information Input Validation",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-11",title:"Error Handling",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SI-12",title:"Information Management and Retention",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SI-16",title:"Memory Protection",family:"SI",family_title:"System and Information Integrity",baselines:["HIGH","MODERATE"]},
+  {ref:"SR-1",title:"Policy and Procedures",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SR-2",title:"Supply Chain Risk Management Plan",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SR-2(1)",title:"Establish SCRM Team",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SR-3",title:"Supply Chain Controls and Processes",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SR-5",title:"Acquisition Strategies, Tools, and Methods",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SR-6",title:"Supplier Assessments and Reviews",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE"]},
+  {ref:"SR-8",title:"Notification Agreements",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SR-9",title:"Tamper Resistance and Detection",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH"]},
+  {ref:"SR-9(1)",title:"Multiple Stages of System Development Life Cycle",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH"]},
+  {ref:"SR-10",title:"Inspection of Systems or Components",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SR-11",title:"Component Authenticity",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SR-11(1)",title:"Anti-counterfeit Training",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SR-11(2)",title:"Configuration Control for Component Service and Repair",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+  {ref:"SR-12",title:"Component Disposal",family:"SR",family_title:"Supply Chain Risk Management",baselines:["HIGH","MODERATE","LOW"]},
+];
+// Illustrative, widely-published crosswalks (advisory). Live set loads from the API.
+function X(fw,ref,rel,conf){return {fw,ref,rel,conf};}
+const CROSSWALKS={
+ 'AC-2':[X('nist-csf-v2','PR.AA-01','related',0.8),X('soc2','CC6.1','partial',0.7),X('soc2','CC6.2','partial',0.7),X('iso-27001','A.5.16','related',0.75),X('iso-27001','A.5.18','related',0.7)],
+ 'AC-6':[X('soc2','CC6.3','partial',0.7),X('iso-27001','A.8.2','related',0.75),X('nist-csf-v2','PR.AA-05','related',0.7)],
+ 'AU-2':[X('nist-csf-v2','DE.AE-03','related',0.75),X('soc2','CC7.2','partial',0.7),X('iso-27001','A.8.15','related',0.75)],
+ 'CA-7':[X('nist-csf-v2','DE.CM-01','related',0.75),X('soc2','CC4.1','partial',0.7),X('iso-27001','A.5.36','related',0.65)],
+ 'IA-2':[X('nist-csf-v2','PR.AA-02','related',0.8),X('soc2','CC6.1','partial',0.7),X('iso-27001','A.8.5','related',0.75)],
+ 'IR-4':[X('nist-csf-v2','RS.MA-01','related',0.8),X('soc2','CC7.4','partial',0.75),X('iso-27001','A.5.26','related',0.75)],
+ 'IR-6':[X('nist-csf-v2','RS.CO-02','related',0.75),X('soc2','CC7.4','related',0.7),X('iso-27001','A.6.8','related',0.7)],
+ 'RA-5':[X('nist-csf-v2','ID.RA-01','related',0.8),X('soc2','CC7.1','partial',0.7),X('iso-27001','A.8.8','related',0.8)],
+ 'SC-7':[X('nist-csf-v2','PR.IR-01','related',0.75),X('soc2','CC6.6','partial',0.7),X('iso-27001','A.8.20','related',0.75)],
+ 'SC-13':[X('nist-csf-v2','PR.DS-01','related',0.75),X('soc2','CC6.7','partial',0.7),X('iso-27001','A.8.24','related',0.8)],
+ 'SI-2':[X('nist-csf-v2','ID.RA-01','related',0.75),X('soc2','CC7.1','partial',0.7),X('iso-27001','A.8.8','related',0.8)],
+};
+// Which tracked changes touch which controls (mirrors the backend link_changes seed)
+const CHANGE_CONTROLS={
+ 'RFC-0027':{families:['AC','AT','AU','CA','CM']},'RFC-0028':{families:['CP','IA','IR','MA','MP']},
+ 'RFC-0026':{refs:['CA-7']},'NTC-0012':{refs:['IR-4','IR-5','IR-6','IR-8']},
+ 'NTC-0010':{refs:['RA-5','SI-2']},'NTC-0009':{refs:['CA-2','CA-6','SA-5']},'CR26':{families:['AC','AU','CM','CA','SC']},
+};
+const CONTROL_SYS={'CA-7':['ConMon Pipeline'],'RA-5':['Vuln Management','ConMon Pipeline'],'SI-2':['Vuln Management'],'IR-4':['Incident Response'],'IR-5':['Incident Response'],'IR-6':['Incident Response'],'IR-8':['Incident Response'],'CA-2':['SSP / MR Package'],'SC-7':['Authorization Boundary']};
+const FAMILY_SYS={AC:'Control Baseline',AU:'ConMon Pipeline',CM:'Control Baseline',IR:'Incident Response',RA:'Vuln Management',SI:'Vuln Management',CA:'ConMon Pipeline',SC:'Authorization Boundary',SA:'SSP / MR Package'};
+function linkedChanges(ref){const fam=ref.split('-')[0];const out=[];for(const cid in CHANGE_CONTROLS){const m=CHANGE_CONTROLS[cid];if((m.refs&&m.refs.includes(ref))||(m.families&&m.families.includes(fam)))out.push(cid);}return out;}
+function controlSystems(ref){const fam=ref.split('-')[0];const s=new Set(CONTROL_SYS[ref]||[]);if(FAMILY_SYS[fam])s.add(FAMILY_SYS[fam]);return[...s];}
+function blClass(b){return b.toLowerCase().replace('-','');}
+function blLabel(b){return b==='LI-SAAS'?'LI-SaaS':b[0]+b.slice(1).toLowerCase();}
+
+let CONTROLS=CONTROL_DATA, ctrlBaselineFilter='ALL';
+async function initControls(){
+  if(CONTROLS_API){
+    try{const r=await fetch(CONTROLS_API+'/controls?limit=2000');const j=await r.json();
+      if(j.controls&&j.controls.length){CONTROLS=j.controls;document.getElementById('ctrlSrc').innerHTML='Source: <b>live API</b> · '+CONTROLS.length+' controls';}
+    }catch(e){document.getElementById('ctrlSrc').innerHTML='Source: <b>bundled sample</b> · live API unreachable.';}
+  }
+  const fams=[...new Set(CONTROLS.map(c=>c.family))].sort();
+  document.getElementById('ctrlFamily').innerHTML='<option value="ALL">All families</option>'+fams.map(f=>'<option value="'+f+'">'+f+'</option>').join('');
+  renderControls();
+}
+function ctrlBaseline(el){document.querySelectorAll('.chip[data-bl]').forEach(c=>c.classList.remove('on'));el.classList.add('on');ctrlBaselineFilter=el.dataset.bl;renderControls();}
+function renderControls(){
+  const q=document.getElementById('ctrlSearch').value.toLowerCase();
+  const fam=document.getElementById('ctrlFamily').value;
+  const list=CONTROLS.filter(c=>{
+    if(fam!=='ALL'&&c.family!==fam)return false;
+    if(ctrlBaselineFilter!=='ALL'&&!(c.baselines||[]).includes(ctrlBaselineFilter))return false;
+    const sf=(document.getElementById('ctrlStatus')||{}).value||'ALL'; if(sf!=='ALL'&&stOf(c.ref)!==sf)return false;
+    if(q){if(!((c.ref+' '+c.title).toLowerCase().includes(q)))return false;}
+    return true;
+  });
+  document.getElementById('ctCtrl').textContent=CONTROLS.length;
+  const groups={};list.forEach(c=>{(groups[c.family]=groups[c.family]||[]).push(c);});
+  const el=document.getElementById('ctrlList');
+  el.innerHTML=Object.keys(groups).sort().map(f=>{
+    const ttl=groups[f][0].family_title||FAM_TITLE[f]||f;
+    return '<div class="fam"><h3>'+f+' — '+ttl+'<span class="cnt">'+groups[f].length+'</span></h3>'+
+      groups[f].map(c=>{
+        const chg=linkedChanges(c.ref);
+        return '<div class="crow" onclick="openControl(\''+c.ref+'\')">'+
+          '<div><span class="cref">'+c.ref+'</span></div>'+
+          '<div><h4>'+c.title+(chg.length?'<span class="chgdot">⚑ '+chg.length+' change'+(chg.length>1?'s':'')+'</span>':'')+'</h4><div class="crow-meta"><span class="stp '+STATUS_META[stOf(c.ref)].cls+'">'+STATUS_META[stOf(c.ref)].label+'</span><span class="crow-owner">'+((STATUS[c.ref]||{}).owner||'')+'</span></div></div>'+
+          '<div class="bls">'+(c.baselines||[]).map(b=>'<span class="bl '+blClass(b)+'">'+blLabel(b)+'</span>').join('')+'</div>'+
+        '</div>';
+      }).join('')+'</div>';
+  }).join('')||'<p style="color:var(--muted);padding:30px;text-align:center">No controls match.</p>';
+}
+async function openControl(ref){
+  const c=CONTROLS.find(x=>x.ref===ref);if(!c)return;
+  let cx=CROSSWALKS[ref]||[];
+  if(CONTROLS_API){try{const r=await fetch(CONTROLS_API+'/controls/'+encodeURIComponent(ref));const j=await r.json();
+    if(j.crosswalks)cx=j.crosswalks.map(m=>({fw:m.to_framework,ref:m.to_ref,rel:m.relation,conf:m.confidence}));}catch(e){}}
+  const byFw={};cx.forEach(m=>{(byFw[m.fw]=byFw[m.fw]||[]).push(m);});
+  const chg=linkedChanges(ref),sys=controlSystems(ref);
+  document.getElementById('drawerBody').innerHTML=
+    '<span class="cref" style="font-size:13px">'+ref+'</span>'+
+    '<h2 style="font-size:18px;margin:6px 0 14px">'+c.title+'</h2>'+statusEditorHtml(ref)+
+    '<div class="field"><div class="k">Family</div><div class="v">'+c.family+' — '+(c.family_title||FAM_TITLE[c.family]||'')+'</div></div>'+
+    '<div class="field"><div class="k">FedRAMP baselines</div><div class="v bls" style="justify-content:flex-start">'+((c.baselines||[]).map(b=>'<span class="bl '+blClass(b)+'">'+blLabel(b)+'</span>').join('')||'—')+'</div></div>'+
+    (c.description?'<div class="field"><div class="k">Statement</div><div class="v" style="color:var(--muted)">'+c.description+'</div></div>':'')+
+    '<div class="field"><div class="k">Cross-framework crosswalks</div><div class="v">'+(Object.keys(byFw).length?Object.keys(byFw).map(fw=>'<div class="cx-fw"><div class="fwname">'+(FW_NAMES[fw]||fw)+'</div>'+byFw[fw].map(m=>'<div class="cx-row"><span class="xref">'+m.ref+'</span>'+(m.conf!=null?'<span class="cx-conf">'+Math.round(m.conf*100)+'%</span>':'')+'<span class="cx-rel">'+m.rel+'</span></div>').join('')+'</div>').join(''):'<span style="color:var(--muted-2)">No crosswalks loaded for this control.</span>')+'</div></div>'+
+    '<div class="field"><div class="k">Changes touching this control</div><div class="v">'+(chg.length?chg.map(id=>'<button class="chg-link" onclick="closeDrawer();openTracker(\''+id+'\')">'+id+' ↗</button>').join(''):'<span style="color:var(--muted-2)">None tracked.</span>')+'</div></div>'+
+    '<div class="field"><div class="k">Internal systems</div><div class="v meta">'+(sys.length?sys.map(s=>'<span class="tag">'+s+'</span>').join(''):'<span style="color:var(--muted-2)">—</span>')+'</div></div>'+
+    (cx.length?'<p class="note">Crosswalk data: myctrl.tools (© hackIDLE / Ethan Troy), CC BY 4.0 — advisory, not authoritative.</p>':'');
+  document.getElementById('drawer').classList.add('show');document.getElementById('drawerBg').classList.add('show');
+}
+
+
+
+/* ===================== SME REVIEW QUEUE ===================== */
+let REVIEW_QUEUE=[
+ {id:'q1',changeId:'NTC-0012',changeTitle:'Updated Incident Communications Procedures',controlRef:'IR-4',controlTitle:'Incident Handling',family:'IR',confidence:0.60,source:'keyword',rationale:'matched /incident (communicat|report|handl)/'},
+ {id:'q2',changeId:'NTC-0012',changeTitle:'Updated Incident Communications Procedures',controlRef:'IR-5',controlTitle:'Incident Monitoring',family:'IR',confidence:0.60,source:'keyword',rationale:'matched /incident (monitor)/'},
+ {id:'q3',changeId:'NTC-0012',changeTitle:'Updated Incident Communications Procedures',controlRef:'IR-6',controlTitle:'Incident Reporting',family:'IR',confidence:0.60,source:'keyword',rationale:'matched /incident (report)/'},
+ {id:'q4',changeId:'NTC-0012',changeTitle:'Updated Incident Communications Procedures',controlRef:'IR-8',controlTitle:'Incident Response Plan',family:'IR',confidence:0.60,source:'keyword',rationale:'matched /incident response plan/'},
+ {id:'q5',changeId:'NTC-0010',changeTitle:'CISA Emergency Directive — Expedited Remediation',controlRef:'RA-5',controlTitle:'Vulnerability Monitoring and Scanning',family:'RA',confidence:0.60,source:'keyword',rationale:'matched /vulnerab|cisa|scan/'},
+ {id:'q6',changeId:'NTC-0010',changeTitle:'CISA Emergency Directive — Expedited Remediation',controlRef:'SI-2',controlTitle:'Flaw Remediation',family:'SI',confidence:0.60,source:'keyword',rationale:'matched /flaw remediat|patch/'},
+ {id:'q7',changeId:'NTC-0009',changeTitle:'Machine-Readable Authorization Packages (OSCAL)',controlRef:'CA-2',controlTitle:'Control Assessments',family:'CA',confidence:0.70,source:'llm',rationale:'OSCAL assessment artifacts'},
+ {id:'q8',changeId:'NTC-0009',changeTitle:'Machine-Readable Authorization Packages (OSCAL)',controlRef:'CA-6',controlTitle:'Authorization',family:'CA',confidence:0.70,source:'llm',rationale:'authorization package'},
+ {id:'q9',changeId:'NTC-0009',changeTitle:'Machine-Readable Authorization Packages (OSCAL)',controlRef:'SA-5',controlTitle:'System Documentation',family:'SA',confidence:0.60,source:'keyword',rationale:'matched /ssp|authorization package/'},
+ {id:'q10',changeId:'RFC-0033',changeTitle:'Annual Penetration Testing Methodology',controlRef:'SC-7',controlTitle:'Boundary Protection',family:'SC',confidence:0.60,source:'keyword',rationale:'matched /boundary protection/'},
+];
+let revSrcFilter='ALL', revApproved=0, revRejected=0;
+function revPost(path,body){ if(CONTROLS_API){ fetch(CONTROLS_API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).catch(()=>{}); } }
+function initReview(){
+  document.getElementById('ctrlRefs').innerHTML=(typeof CONTROL_DATA!=='undefined'?CONTROL_DATA:[]).map(c=>'<option value="'+c.ref+'">'+c.title+'</option>').join('');
+  if(CONTROLS_API){ fetch(CONTROLS_API+'/review/queue').then(r=>r.json()).then(j=>{ if(j.queue&&j.queue.length){ REVIEW_QUEUE=j.queue.map((m,i)=>({id:'srv'+i,changeId:m.change_id,changeTitle:m.change_id,controlRef:m.control_ref,controlTitle:(CONTROL_DATA.find(c=>c.ref===m.control_ref)||{}).title||'',family:m.family,confidence:m.confidence,source:m.source,rationale:m.rationale||''})); renderReview(); } }).catch(()=>{}); }
+  renderReview();
+}
+function revSource(el){ document.querySelectorAll('.chip[data-src]').forEach(c=>c.classList.remove('on')); el.classList.add('on'); revSrcFilter=el.dataset.src; renderReview(); }
+function revMsg(t){ const e=document.getElementById('revMsg'); e.textContent=t; setTimeout(()=>{if(e.textContent===t)e.textContent='';},2600); }
+function confClass(c){ return c<0.7?'lo':'mid'; }
+function addConfirmed(it){ const m=CHANGE_CONTROLS[it.changeId]=CHANGE_CONTROLS[it.changeId]||{}; m.refs=m.refs||[]; if(!m.refs.includes(it.controlRef)) m.refs.push(it.controlRef); }
+function approveItem(id){ const it=REVIEW_QUEUE.find(x=>x.id===id); if(!it)return; revPost('/review/approve',{change_id:it.changeId,control_ref:it.controlRef,reviewed_by:'sme'}); addConfirmed(it); REVIEW_QUEUE=REVIEW_QUEUE.filter(x=>x.id!==id); revApproved++; revMsg('Approved '+it.controlRef+' → '+it.changeId); renderReview(); }
+function rejectItem(id){ const it=REVIEW_QUEUE.find(x=>x.id===id); if(!it)return; revPost('/review/reject',{change_id:it.changeId,control_ref:it.controlRef}); REVIEW_QUEUE=REVIEW_QUEUE.filter(x=>x.id!==id); revRejected++; revMsg('Rejected '+it.controlRef+' for '+it.changeId); renderReview(); }
+function approveAll(changeId){ REVIEW_QUEUE.filter(x=>x.changeId===changeId).slice().forEach(it=>{ revPost('/review/approve',{change_id:it.changeId,control_ref:it.controlRef,reviewed_by:'sme'}); addConfirmed(it); revApproved++; }); REVIEW_QUEUE=REVIEW_QUEUE.filter(x=>x.changeId!==changeId); revMsg('Approved all mappings for '+changeId); renderReview(); }
+function startReassign(id){ window._reassign=id; renderReview(); setTimeout(()=>{const i=document.getElementById('reEdit');if(i)i.focus();},30); }
+function cancelReassign(){ window._reassign=null; renderReview(); }
+function saveReassign(id){ const it=REVIEW_QUEUE.find(x=>x.id===id); const val=(document.getElementById('reEdit').value||'').toUpperCase().trim(); if(!it)return; const ok=CONTROL_DATA.find(c=>c.ref===val); if(!ok){ revMsg('“'+val+'” is not a valid FedRAMP Rev5 control'); return; } revPost('/review/reassign',{change_id:it.changeId,old_ref:it.controlRef,new_ref:val,confidence:it.confidence,reviewed_by:'sme'}); it.controlRef=val; it.controlTitle=ok.title; it.family=val.split('-')[0]; addConfirmed(it); window._reassign=null; REVIEW_QUEUE=REVIEW_QUEUE.filter(x=>x.id!==id); revApproved++; revMsg('Reassigned & approved → '+val); renderReview(); }
+function renderReview(){
+  const list=REVIEW_QUEUE.filter(x=>revSrcFilter==='ALL'||x.source===revSrcFilter);
+  document.getElementById('revPending').textContent=REVIEW_QUEUE.length;
+  document.getElementById('ctReview').textContent=REVIEW_QUEUE.length;
+  document.getElementById('revApproved').textContent=revApproved;
+  document.getElementById('revRejected').textContent=revRejected;
+  const el=document.getElementById('revList');
+  if(!list.length){ el.innerHTML='<div class="rev-empty"><div class="big">✓</div>'+(REVIEW_QUEUE.length?'No mappings match this filter.':'Queue clear — every classifier mapping has been reviewed.')+'</div>'; return; }
+  const groups={}; list.forEach(it=>{ (groups[it.changeId]=groups[it.changeId]||[]).push(it); });
+  el.innerHTML=Object.keys(groups).map(cid=>{
+    const g=groups[cid], title=g[0].changeTitle;
+    return '<div class="rev-group"><div class="rev-ghead"><span class="gid">'+cid+'</span><span class="gtitle">'+title+'</span><span class="gcount">'+g.length+' pending</span><button class="rev-approve-all" onclick="approveAll(\''+cid+'\')">Approve all</button></div>'+
+      g.map(it=>{
+        if(window._reassign===it.id){
+          return '<div class="rev-row"><div><span class="rref">'+it.controlRef+'</span></div><div class="rev-editor"><input id="reEdit" list="ctrlRefs" placeholder="New control ref" value="'+it.controlRef+'"><span class="rev-why">reassign to a valid Rev5 control</span></div><div class="rev-actions"><button class="b-app" onclick="saveReassign(\''+it.id+'\')">Save</button><button class="b-rej" onclick="cancelReassign()">Cancel</button></div></div>';
+        }
+        return '<div class="rev-row">'+
+          '<div><span class="rref">'+it.controlRef+'</span></div>'+
+          '<div><h4>'+it.controlTitle+'</h4><div class="rev-meta"><span class="conf-badge '+confClass(it.confidence)+'">'+Math.round(it.confidence*100)+'% conf</span><span class="src-chip">'+it.source+'</span><span class="rev-why">'+it.rationale+'</span></div></div>'+
+          '<div class="rev-actions"><button class="b-app" onclick="approveItem(\''+it.id+'\')">Approve</button><button class="b-edit" onclick="startReassign(\''+it.id+'\')">Reassign</button><button class="b-rej" onclick="rejectItem(\''+it.id+'\')">Reject</button></div>'+
+        '</div>';
+      }).join('')+'</div>';
+  }).join('');
+}
+
+/* ===================== RFC BLAST RADIUS (reverse direction) ===================== */
+function changeControls(changeId){
+  const m=CHANGE_CONTROLS[changeId]; if(!m) return [];
+  const refs=new Set(m.refs||[]);
+  (m.families||[]).forEach(fam=>CONTROL_DATA.filter(c=>c.family===fam).forEach(c=>refs.add(c.ref)));
+  return [...refs].sort();
+}
+function blastRadius(changeId){
+  const refs=changeControls(changeId);
+  const controls=refs.map(r=>CONTROL_DATA.find(c=>c.ref===r)).filter(Boolean);
+  const byFw={};
+  refs.forEach(r=>(CROSSWALKS[r]||[]).forEach(m=>{(byFw[m.fw]=byFw[m.fw]||[]).push({from:r,to:m.ref,rel:m.rel,conf:m.conf});}));
+  const sys=new Set(); refs.forEach(r=>controlSystems(r).forEach(s=>sys.add(s)));
+  return {refs,controls,byFw,systems:[...sys]};
+}
+function changeOwners(changeId){
+  try{return [...new Set(TASKS.filter(t=>t.itemId===changeId).map(t=>TEAM[t.who]).filter(Boolean))];}catch(e){return [];}
+}
+function renderBlast(){
+  const b=blastRadius(tkItem), fws=Object.keys(b.byFw), owners=changeOwners(tkItem);
+  let h='<div class="br-stats">'+
+    '<div class="br-stat"><div class="n">'+b.refs.length+'</div><div class="l">FedRAMP controls</div></div>'+
+    '<div class="br-stat"><div class="n">'+fws.length+'</div><div class="l">Frameworks impacted</div></div>'+
+    '<div class="br-stat"><div class="n">'+b.systems.length+'</div><div class="l">Internal systems</div></div></div>';
+  h+='<div class="tk-h">FedRAMP Rev5 controls touched</div>';
+  h+='<div class="br-ctrls">'+(b.refs.length?b.refs.map(r=>'<span class="br-ctrl" onclick="closeTracker();openControl(\''+r+'\')">'+r+' \u2197</span>').join(''):'<span style="color:var(--muted-2);font-family:var(--mono);font-size:12px">No control mappings for this change.</span>')+'</div>';
+  h+='<div class="tk-h">Cross-framework obligations</div>';
+  h+=(fws.length?fws.map(fw=>'<div class="cx-fw"><div class="fwname">'+(FW_NAMES[fw]||fw)+'</div>'+b.byFw[fw].map(m=>'<div class="cx-row"><span class="cref" style="color:var(--blue);font-family:var(--mono)">'+m.from+'</span> <span style="color:var(--muted-2)">\u2192</span> <span class="xref">'+m.to+'</span>'+(m.conf!=null?'<span class="cx-conf">'+Math.round(m.conf*100)+'%</span>':'')+'<span class="cx-rel">'+m.rel+'</span></div>').join('')+'</div>').join(''):'<span style="color:var(--muted-2);font-family:var(--mono);font-size:12px">No crosswalks loaded for the affected controls (sample set).</span>');
+  h+='<div class="tk-h">Internal systems &amp; owners</div>';
+  h+='<div class="meta" style="display:flex;gap:7px;flex-wrap:wrap">'+(b.systems.length?b.systems.map(s=>'<span class="tag">'+s+'</span>').join(''):'<span style="color:var(--muted-2)">\u2014</span>')+'</div>';
+  if(owners.length)h+='<div style="margin-top:9px;font-family:var(--mono);font-size:11px;color:var(--muted)">Owners: <span style="color:var(--ink)">'+owners.join(', ')+'</span></div>';
+  h+='<p class="note">Controls resolved from the FedRAMP Rev5 spine; crosswalks from myctrl.tools (CC BY 4.0) \u2014 advisory, not authoritative.</p>';
+  return h;
+}
+
+/* ===================== IMPLEMENTATION TRACKER ===================== */
+const C={red:{fg:'var(--red)',bg:'var(--red-dim)'},violet:{fg:'var(--violet)',bg:'var(--violet-dim)'},blue:{fg:'var(--blue)',bg:'var(--blue-dim)'},teal:{fg:'var(--teal)',bg:'var(--teal-dim)'},amber:{fg:'var(--signal)',bg:'var(--signal-dim)'},green:{fg:'var(--teal)',bg:'var(--teal-dim)'}};
+
+const NTC12_REFERENCE = `
+  <div class="tk-h">Terminology — what changed & why</div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:13px;line-height:1.6">FedRAMP is discontinuing "dual-use" terms that mean one thing to federal agencies and another to private companies. Each is replaced with plain language scoped to commercial CSPs.</p>
+  <div class="def-grid">
+    <div class="def"><div class="old">replaces <s>Potential Adverse Impact</s></div><div class="new">Potential Agency Impact (PAIN)</div><div class="bd">Estimated cumulative effect of unauthorized access, disruption, or harm to <b>all agencies using the service</b> likely to result from incidents/vulnerabilities, per the FedRAMP PAIN N-rating.</div></div>
+    <div class="def" style="border-top-color:var(--red)"><div class="old">replaces <s>Catastrophic Adverse Effect</s></div><div class="new">Debilitating Customer Effect</div><div class="bd">Interrupts use for <b>most users</b> or compromises integrity/confidentiality of <b>most federal data</b>. If unknown, treat as debilitating until proven otherwise.</div></div>
+    <div class="def" style="border-top-color:var(--signal)"><div class="old">replaces <s>Serious Adverse Effect</s></div><div class="new">Disruptive Customer Effect</div><div class="bd">Interrupts use for <b>many users for &lt;24h</b>, or compromises <b>large amounts/many types</b> of federal data.</div></div>
+    <div class="def" style="border-top-color:var(--teal)"><div class="old">replaces <s>Limited Adverse Effect</s></div><div class="new">Narrow Customer Effect</div><div class="bd">Interrupts use for <b>some users for &lt;12h</b>, or compromises an <b>extremely limited amount/type</b> of federal data.</div></div>
+    <div class="def" style="border-top-color:var(--teal)"><div class="old">replaces <s>Negligible Adverse Effect</s></div><div class="new">Minimal Customer Effect</div><div class="bd">Only noticeable by <b>some users</b> — minor inconveniences such as reduced performance.</div></div>
+    <div class="def" style="border-top-color:var(--violet)"><div class="old">replaces <s>Federal Reportable Incident</s></div><div class="new">FedRAMP Reportable Incident</div><div class="bd">Clarifies these are <b>FedRAMP Certification</b> requirements — unrelated to CIRCIA or other federal reporting laws.</div></div>
+  </div>
+  <div class="tk-h">Incident report timeframes by Certification Class</div>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:11px;line-height:1.55">Clocks start once evaluation is complete (incident judged FedRAMP-reportable + PAIN estimated). IIR=Initial, OIR=Ongoing, FIR=Final.</p>
+  <table class="tk-table"><thead><tr><th>Class</th><th>PAIN</th><th>IIR</th><th>OIR</th><th>FIR</th></tr></thead><tbody>
+    <tr><td><span class="cls d">Class D · High</span></td><td>5,4,3</td><td><span class="tv fast">15 min</span></td><td><span class="tv fast">3 hr</span></td><td><span class="tv fast">3 hr</span></td></tr>
+    <tr><td><span class="cls c">Class C · Mod</span></td><td>5,4,3</td><td><span class="tv med">1 hr</span></td><td><span class="tv med">6 hr</span></td><td><span class="tv med">6 hr</span></td></tr>
+    <tr><td><span class="cls b">Class B · Low</span></td><td>5,4,3</td><td><span class="tv ok">6 hr</span></td><td colspan="2" style="color:var(--muted-2)">unchanged</td></tr>
+    <tr><td><span class="cls a">Class A · Pilot</span></td><td>5,4,3</td><td><span class="tv ok">6 hr</span></td><td colspan="2" style="color:var(--muted-2)">unchanged</td></tr>
+  </tbody></table>
+  <p style="font-size:11.5px;color:var(--muted-2);margin-top:9px;line-height:1.55">PAIN5/4 should effectively never occur in a properly built Class D/C service; PAIN3 should be exceedingly rare. These windows are for extraordinary events.</p>`;
+
+const NTC12_BG = [
+  {title:'⏱ Concerns about reporting timeframes', body:'<p>The windows assume CSPs run <b>modern incident systems with automatic communication</b>. A 15-min Class D IIR is essentially impossible by hand.</p><div class="bg-hl">FedRAMP urges providers to <b>exceed</b> these times and drive notification toward zero — every minute can mean harm to the public.</div><p>That said, definitions target <b>truly serious events only</b>. A PAIN5 event is a "hundred-year flood" — e.g. a compromised admin account destroying a service from within, or (in 2026) an AI agent given far too many permissions and left without oversight.</p>'},
+  {title:'📊 Evaluating Potential Agency Impact', body:'<p>PAIN is estimated from the likely Customer Effect using metrics a CSP can measure. The CSP estimates the effect on <b>users of its service</b>, not the agency mission, then gives the agency enough information to judge its own impact.</p><div class="bg-hl">This is why fast communication matters — the CSP must assume the agency uses the service for operations commensurate with its Certification Class.</div>'},
+  {title:'🕐 When does the reporting clock start?', body:'<p>Prior phrasing "within [time] of evaluation" was ambiguous.</p><div class="bg-hl">The clock starts when the CSP has (1) determined the incident is likely to affect an agency customer and (2) evaluated the overall impact (PAIN, if estimated). Then notify at all reasonable speed.</div><div class="bg-warn">Sitting on incidents for days before evaluating is not technically a violation — but agencies will notice and re-evaluate a service that does not take them seriously.</div>'},
+  {title:'🏛 CIRCIA vs. FedRAMP', body:'<p><b>CIRCIA</b> governs critical-infrastructure incident reporting to CISA for national security. <b>FedRAMP ICP</b> governs notifying agency customers about incidents likely to affect their federal data.</p><div class="bg-hl">CIRCIA is entirely unrelated to FedRAMP and vice versa.</div><p>The "federal reportable incident" → "FedRAMP reportable incident" rename exists to kill this confusion.</p>'},
+  {title:'📁 Why the definition of "incident" was reset', body:'<p>The old definition only counted incidents affecting federal data — a circular problem: how do you evaluate whether an incident affects federal data if it is already defined as one that does?</p><div class="bg-hl">Fix: reset <b>incident</b> to a general definition, then add an explicit evaluation phase that decides if it is FedRAMP-reportable. Net effect <b>reduces</b> reporting scope, not increases it.</div>'},
+  {title:'🔄 Why CSPs no longer report directly to CISA', body:'<p>CSPs cannot know the real impact to agency operations, so their CISA reports were noise. Agencies — who know how they use the service — now own that reporting.</p><div class="bg-hl"><b>Example:</b> a CSP reports "all customer data exfiltrated" — but only the agency knows whether that data was already public or highly sensitive. Only the agency can report meaningfully.</div><div class="bg-warn">Some CSPs have <b>legacy contracts</b> that still require CISA reporting — review before removing it.</div>'},
+  {title:'📐 Why FedRAMP is not providing templates', body:'<p>FedRAMP declines templates to <b>encourage competitive differentiation</b> in customer experience; CR26 removes nearly all templates.</p><div class="bg-hl">FedRAMP is considering <b>basic JSON schemas</b> for a few high-priority reporting cases to enable machine-readable interoperability.</div>'},
+];
+
+const TRACKERS = {
+  'NTC-0012':{
+    deadlines:[{date:'Jul 4, 2026',label:'New 20x Certifications',iso:'2026-07-04'},{date:'Jan 1, 2027',label:'Rev5 & Pilot 20x',iso:'2027-01-01'}],
+    overview:[
+      {h:'What is NTC-0012?',p:['Final outcome of <b>RFC-0031 — Updated Incident Communications Procedures</b>, the last major guidance overhaul in the FedRAMP Consolidated Rules for 2026. It replaces historical incident rules that most CSPs were not properly following.','The goal: a measurable framework ensuring <b>agencies are notified of incidents likely to impact them</b>, with stricter expectations for higher Certification Classes (especially Class D).']},
+      {h:'Who acts & when',p:['<b>Jul 4, 2026:</b> any CSP seeking a new <b>20x Certification</b> must comply from day one.','<b>Jan 1, 2027:</b> any CSP obtaining/maintaining a <b>Rev5</b> cert or maintaining a <b>pilot 20x</b> cert.','Early adoption is strongly encouraged — agencies will scrutinize incident handling before the mandatory date.']},
+      {h:'The 8 major changes',p:['1 · Availability reporting moves to the Certification Data Sharing ruleset (no longer public).','2 · "Federal reportable incident" → "FedRAMP reportable incident."','3 · PAIN evaluation is optional — default all incidents to PAIN5 for one simple workflow.','4 · The reporting clock starts at evaluation completion, not detection.','5 · Automated reporting is now a SHOULD rule — no hand-crafted notifications.','6 · Incident reports must list likely affected agencies; requirements vary by Class.','7 · CSPs no longer report to CISA directly — agencies do.','8 · Tightened timeframes — Class D 15-min initial report.']},
+    ],
+    sections:[
+      {id:'deadlines',title:'Deadline & Ownership',icon:'📅',color:C.red,tasks:[
+        {id:'d1',label:'Confirm your FedRAMP Certification Class (20x-new, Rev5, or pilot 20x)',note:'Sets your mandatory date: Jul 4 2026 vs Jan 1 2027',pri:'high',detail:'20x-new must comply by <b>Jul 4 2026</b> (~30 days out). Rev5 and pilot 20x have until <b>Jan 1 2027</b>. Early adoption encouraged regardless.'},
+        {id:'d2',label:'Enter all compliance deadlines into project tracking',note:'Block time per implementation phase',pri:'high',detail:'Milestones: terminology audit, runbook updates, automated reporting build, PAIN-approach decision, contract review.'},
+        {id:'d3',label:'Assign a DRI accountable for NTC-0012 compliance',note:'One owner across security, eng, legal, customer success',pri:'high',detail:'Without a single owner this falls between teams. The DRI needs authority over PAIN approach, tooling spend, and contract review.'},
+      ]},
+      {id:'term',title:'Terminology Updates',icon:'📝',color:C.violet,tasks:[
+        {id:'t1',label:'"Potential Adverse Impact" → "Potential Agency Impact (PAIN)" everywhere',pri:'high',detail:'Applies across all of CR26 — Vulnerability Detection & Response <b>and</b> ICP. Update docs, runbooks, training, and customer-facing material.'},
+        {id:'t2',label:'"Adverse Effects" → "Customer Effects" (category rename)',pri:'high',detail:'Rename the four-tier framework plus all four tier names below.'},
+        {id:'t3',label:'Catastrophic → Debilitating Customer Effect',pri:'med',detail:'Most users affected OR most federal data compromised. If unknown, treat as debilitating.'},
+        {id:'t4',label:'Serious → Disruptive Customer Effect',pri:'med',detail:'Many users for &lt;24h, or large amounts/many types of federal data.'},
+        {id:'t5',label:'Limited → Narrow Customer Effect',pri:'med',detail:'Some users for &lt;12h, or an extremely limited amount/type of federal data.'},
+        {id:'t6',label:'Negligible → Minimal Customer Effect',pri:'med',detail:'Only noticeable by some users — minor inconveniences such as reduced performance.'},
+        {id:'t7',label:'"Federal reportable incident" → "FedRAMP reportable incident" everywhere',pri:'high',detail:'Clarifies these are FedRAMP Certification requirements, unrelated to CIRCIA.'},
+        {id:'t8',label:'Audit systems, runbooks, SOPs, alert templates for deprecated terms',note:'Grep code, ticket templates, status-page text, training decks',pri:'high',detail:'Not just Word docs — check incident-system templates, automated alert text, status pages, customer comms, onboarding, policies, and API integrations.'},
+      ]},
+      {id:'time',title:'Incident Reporting Timeframes',icon:'⏱',color:C.blue,tasks:[
+        {id:'r1',label:'Update Class D runbooks: 15-min IIR / 3-hr OIR / 3-hr FIR (PAIN 5,4,3)',pri:'high',detail:'15 minutes essentially requires fully automated notification. The clock starts at evaluation completion — ensure the system can fire automatically the moment an incident is classified FedRAMP-reportable.'},
+        {id:'r2',label:'Update Class C runbooks: 1-hr IIR / 6-hr OIR / 6-hr FIR (PAIN 5,4,3)',pri:'high',detail:'Most of the 1-hour window is the evaluation phase; notification should be near-immediate once that completes.'},
+        {id:'r3',label:'Update Class B & A runbooks: 6-hr IIR (PAIN 5,4,3)',pri:'med',detail:'OIR/FIR for these classes are unchanged. Verify against the full ruleset on preview.fedramp.gov.'},
+        {id:'r4',label:'Validate on-call/alerting can meet the Class D 15-minute window',note:'May require tooling investment',pri:'high',detail:'Can your system detect, classify, evaluate, and fire automated notifications within 15 minutes of evaluation? Manual assembly will not work for Class D.'},
+      ]},
+      {id:'proc',title:'Process & Workflow Changes',icon:'⚙️',color:C.teal,tasks:[
+        {id:'p1',label:'Decide: implement PAIN estimation OR default all incidents to PAIN5',note:'Document the decision + rationale',pri:'high',detail:'Default-PAIN5 (ICP-CSO-DPR) gives one simple automated workflow but over-reports minor incidents. Estimating PAIN (ICP-CSO-EFI) is accurate but more complex. Smaller/lower-class CSPs often prefer default-PAIN5.'},
+        {id:'p2',label:'Build/integrate automated incident notification (ICP-CSO-AIR)',note:'New SHOULD rule — no manual notifications',pri:'high',detail:'Notifications must be centrally managed, auto-triggered on status changes, and auto-sent on expected timeframes. Non-negotiable for Class D.'},
+        {id:'p3',label:'Add "likely affected customer agencies" to IIR/OIR templates',note:'New mandatory field',pri:'high',detail:'Lets agencies start their own triage and CISA reporting. Consider how tenant/region data maps to agencies so this can be automated.'},
+        {id:'p4',label:'Update the incident definition to cover all incidents',pri:'med',detail:'New definition is general (any security incident), removing the old circular logic. The evaluation step decides if it becomes FedRAMP-reportable.'},
+        {id:'p5',label:'Add a formal evaluation step: reportable? what PAIN?',pri:'high',detail:'Two determinations: (1) likely to affect confidentiality/integrity of federal data? (2) PAIN rating, or default PAIN5. Completing this starts the reporting clock.'},
+        {id:'p6',label:'Clarify in runbooks that the clock starts at evaluation, not detection',pri:'med',detail:'Compliance-gap risk — teams may assume detection. But slow evaluation is still a customer-experience problem even if technically compliant.'},
+      ]},
+      {id:'cisa',title:'CISA Reporting Change',icon:'🏛',color:C.amber,tasks:[
+        {id:'c1',label:'Remove CSP-direct CISA reporting from incident procedures',note:'Agencies now own CISA reporting',pri:'high',detail:'CSPs cannot know real agency impact, so their CISA reports were noise. Agencies report based on their own measured impact.'},
+        {id:'c2',label:'Review all contracts for legacy CISA reporting obligations',note:'Contract terms can still require it',pri:'high',detail:'The rule change does not supersede contracts. Where contracts require CISA reporting, maintain that workflow separately.'},
+        {id:'c3',label:'Tell agency customers they now own CISA reporting',note:'They may not know FedRAMP removed it from CSPs',pri:'med',detail:'Proactively notifying customers — especially for high-impact incidents — builds trust and helps them prepare.'},
+      ]},
+      {id:'avail',title:'Availability Reporting',icon:'📊',color:C.green,tasks:[
+        {id:'a1',label:'Move availability reporting from ICP into Certification Data Sharing (CDS-CSO-AVR)',pri:'med',detail:'It is ongoing data sharing, not incident reporting. Review CDS-CSO-AVR on preview.fedramp.gov.'},
+        {id:'a2',label:'Restrict availability data to necessary parties — no longer public',pri:'med',detail:'Some services are configured so only an active customer can tell if their tenant is down, making public reporting inappropriate.'},
+        {id:'a3',label:'If Class B: treat availability reporting as mandatory, not a recommendation',pri:'med',detail:'For Class B it is elevated to a requirement — formalize and document it as a compliance obligation.'},
+      ]},
+    ],
+    reference:NTC12_REFERENCE,
+    background:NTC12_BG,
+  },
+};
+
+function genericTracker(it){
+  const tasks=[{id:'g0',label:'Read the source notice / RFC in full',note:it.url,pri:'high',detail:'Read the complete text before planning — early-section reactions often miss later clarifications.'}];
+  (it.impactAreas||[]).forEach((a,i)=>tasks.push({id:'g'+(i+1),label:'Assess impact on '+a,pri:'med',detail:'Map this change to the specific controls/components under <b>'+a+'</b> and identify the owning engineer.'}));
+  tasks.push({id:'gpl',label:'Draft an internal implementation plan',pri:'high'});
+  tasks.push({id:'gdri',label:'Assign a DRI and track to completion in Jira',pri:'high',note: it.jira? 'Linked ticket: '+it.jira : 'Create the tracking ticket'});
+  return {
+    deadlines: it.deadline?[{date:fmtDate(it.deadline),label:'Effective / deadline',iso:it.deadline}]:[],
+    overview:[{h:'Summary',p:[it.summary]},{h:'Why it surfaced',p:['Auto-flagged because it touches: <b>'+((it.impactAreas||[]).join(', ')||'unmapped')+'</b>. Priority '+(it.pri||'—')+'.','A curated implementation playbook can be authored (or AI-generated) for this change — the NTC-0012 tracker shows the full version.']}],
+    sections:[{id:'plan',title:'Triage & Implementation Plan',icon:'🧭',color:C.amber,tasks}],
+    reference:null,background:null,
+  };
+}
+
+let tkItem=null, tkData=null, tkTab='overview';
+function ensureState(id){ if(!trackerState[id]) trackerState[id]={}; }
+const trackerState={};
+
+function openTracker(id){
+  const it=ITEMS.find(x=>x.id===id); if(!it) return;
+  tkItem=id; tkData=TRACKERS[id]||genericTracker(it); tkTab='overview'; ensureState(id);
+  // head
+  const st=liveState(it);
+  document.getElementById('tkHead').innerHTML=`
+    <div class="row">
+      <div class="kind ${it.kind}">${it.kind}</div>
+      <div style="flex:1;min-width:0">
+        <h2>${it.title}</h2>
+        <div class="sub">${it.id} · published ${fmtDate(it.published)} · <a href="${it.url}" target="_blank" rel="noopener">${it.url} ↗</a></div>
+      </div>
+    </div>
+    <div class="tk-prog"><div class="bar"><div id="tkProgFill"></div></div><span class="txt" id="tkProgTxt"></span></div>`;
+  // tabs
+  const tabs=[['overview','Overview'],['actions','Action Items']];
+  if(CHANGE_CONTROLS[id]) tabs.push(['blast','Blast Radius']);
+  if(tkData.reference) tabs.push(['reference','Reference']);
+  if(tkData.background) tabs.push(['background','Background']);
+  document.getElementById('tkTabs').innerHTML=tabs.map(([k,l])=>`<div class="tk-tab ${k==='overview'?'active':''}" data-tk="${k}" onclick="tkSwitch('${k}')">${l}</div>`).join('');
+  renderTkPane();
+  document.getElementById('tk').classList.add('show'); document.getElementById('tkBg').classList.add('show');
+  document.getElementById('tkBody').scrollTop=0;
+}
+function closeTracker(){ document.getElementById('tk').classList.remove('show'); document.getElementById('tkBg').classList.remove('show'); }
+function tkSwitch(tab){ tkTab=tab; document.querySelectorAll('.tk-tab').forEach(t=>t.classList.toggle('active',t.dataset.tk===tab)); renderTkPane(); document.getElementById('tkBody').scrollTop=0; }
+
+function renderTkPane(){
+  const b=document.getElementById('tkBody');
+  if(tkTab==='overview'){
+    const dls=tkData.deadlines.length? `<div class="tk-dls">`+tkData.deadlines.map(d=>{
+      const days=Math.ceil((new Date(d.iso)-TODAY)/864e5);
+      return `<div class="tk-dl ${days<0?'past':''}"><div class="d">${d.date}</div><div class="l">${d.label}</div><div class="cd">${days<0?'past due':days+' days away'}</div></div>`;
+    }).join('')+`</div>`:'';
+    b.innerHTML=dls+tkData.overview.map(s=>`<div class="tk-sum"><h3>${s.h}</h3>${s.p.map(p=>`<p>${p}</p>`).join('')}</div>`).join('');
+  } else if(tkTab==='actions'){
+    b.innerHTML=tkData.sections.map(sec=>{
+      const done=sec.tasks.filter(t=>trackerState[tkItem][t.id]).length;
+      return `<div class="tk-sec" id="tksec-${sec.id}">
+        <div class="tk-sec-h" onclick="tkToggleSec('${sec.id}')">
+          <div class="t"><div class="ic" style="background:${sec.color.bg};color:${sec.color.fg}">${sec.icon}</div>${sec.title}</div>
+          <div class="meta"><div class="tk-mini"><div id="tkmini-${sec.id}" style="background:${sec.color.fg};width:${Math.round(done/sec.tasks.length*100)}%"></div></div><span class="ct" id="tkct-${sec.id}">${done}/${sec.tasks.length}</span><span class="tk-chev">▾</span></div>
+        </div>
+        <div class="tk-tasks">${sec.tasks.map(t=>{
+          const on=trackerState[tkItem][t.id];
+          return `<div class="tk-task ${on?'done':''}" id="tkt-${t.id}" onclick="tkToggleTask('${sec.id}','${t.id}')">
+            <div class="tk-cb">${on?'✓':''}</div>
+            <div class="main"><div class="lbl">${t.label}</div>${t.note?`<div class="note">${t.note}</div>`:''}${t.detail?`<button class="tk-why" onclick="tkToggleDetail(event,'tkd-${t.id}')">▸ Why &amp; how</button><div class="tk-detail" id="tkd-${t.id}">${t.detail}</div>`:''}</div>
+            <span class="tk-pri ${t.pri}">${t.pri==='high'?'High':t.pri==='med'?'Med':'Low'}</span>
+          </div>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('');
+  } else if(tkTab==='blast'){
+    b.innerHTML=renderBlast();
+  } else if(tkTab==='reference'){
+    b.innerHTML=tkData.reference;
+  } else if(tkTab==='background'){
+    b.innerHTML=`<p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;line-height:1.6">FedRAMP's rationale behind each change — useful for briefing leadership or anticipating audit questions.</p>`+
+      tkData.background.map((c,i)=>`<div class="bg-c ${i===0?'open':''}" id="bgc-${i}"><div class="bg-c-h" onclick="tkToggleBg(${i})"><h4>${c.title}</h4><span class="c">▾</span></div><div class="bg-c-b">${c.body}</div></div>`).join('');
+  }
+  updTkProgress();
+}
+function tkToggleSec(id){ document.getElementById('tksec-'+id)?.classList.toggle('collapsed'); }
+function tkToggleBg(i){ document.getElementById('bgc-'+i)?.classList.toggle('open'); }
+function tkToggleDetail(e,id){ e.stopPropagation(); const el=document.getElementById(id); const o=el.classList.toggle('open'); e.target.textContent=o?'▾ Why & how':'▸ Why & how'; }
+function tkToggleTask(sec,tid){
+  trackerState[tkItem][tid]=!trackerState[tkItem][tid];
+  const row=document.getElementById('tkt-'+tid); const on=trackerState[tkItem][tid];
+  row.classList.toggle('done',on); row.querySelector('.tk-cb').textContent=on?'✓':'';
+  updTkProgress();
+}
+function updTkProgress(){
+  if(!tkData) return; let total=0,done=0;
+  tkData.sections.forEach(s=>{ let sd=0; s.tasks.forEach(t=>{ total++; if(trackerState[tkItem][t.id]){done++;sd++;} });
+    const m=document.getElementById('tkmini-'+s.id); if(m) m.style.width=Math.round(sd/s.tasks.length*100)+'%';
+    const c=document.getElementById('tkct-'+s.id); if(c) c.textContent=sd+'/'+s.tasks.length; });
+  const pct=total?Math.round(done/total*100):0;
+  const f=document.getElementById('tkProgFill'); if(f) f.style.width=pct+'%';
+  const t=document.getElementById('tkProgTxt'); if(t) t.innerHTML=`<b>${done}</b> of ${total} items complete (${pct}%)`;
+}
+
+setSync(); renderStats(); renderFeed(); renderMatrix(); renderBoard(); renderSources(); loadLiveFeeds();
+seedStatus(); renderPosture();
+</script>
+</body>
+</html>

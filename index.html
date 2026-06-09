@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cribl Lighthouse</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1016; --panel:#141922; --panel-2:#1a2130; --line:#252d3d;
+    --ink:#eef2f8; --muted:#8c98ad; --muted-2:#5c6679;
+    --signal:#f5a623; --signal-dim:#5a4318;
+    --mono:"IBM Plex Mono",monospace; --sans:"Archivo",sans-serif;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:100vh;
+    display:flex;flex-direction:column}
+  ::selection{background:var(--signal);color:#1a1303}
+  a{text-decoration:none;color:inherit}
+  header{display:flex;align-items:center;gap:14px;padding:16px 26px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .mark{font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:.5px;color:#1a1303;background:var(--signal);padding:4px 9px;border-radius:5px}
+  .brand b{font-weight:700;font-size:15px} .brand span{color:var(--muted);font-size:12px;font-family:var(--mono);display:block;margin-top:1px}
+  main{flex:1;max-width:900px;margin:0 auto;padding:54px 26px 40px;width:100%}
+  .lede{font-size:15px;color:var(--muted);line-height:1.6;max-width:620px;margin:0 0 36px}
+  .lede b{color:var(--ink);font-weight:600}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px 24px 22px;position:relative;overflow:hidden;transition:.16s}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--signal);opacity:.0;transition:.16s}
+  .card:hover{border-color:var(--signal);transform:translateY(-2px)}
+  .card:hover::before{opacity:1}
+  .tag{font-family:var(--mono);font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--signal);background:var(--signal-dim);padding:3px 8px;border-radius:5px;display:inline-block}
+  .card h2{font-size:20px;font-weight:700;margin:16px 0 8px}
+  .card p{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 18px}
+  .go{font-family:var(--mono);font-size:12px;color:var(--ink);display:inline-flex;align-items:center;gap:7px}
+  .go .arr{color:var(--signal);transition:.16s}
+  .card:hover .go .arr{transform:translateX(4px)}
+  .meta{font-family:var(--mono);font-size:11px;color:var(--muted-2);margin-top:14px;border-top:1px solid var(--line);padding-top:12px;line-height:1.6}
+  footer{font-family:var(--mono);font-size:11px;color:var(--muted-2);padding:18px 26px;border-top:1px solid var(--line);line-height:1.6}
+  footer a{color:var(--muted);text-decoration:underline}
+  @media(max-width:660px){.cards{grid-template-columns:1fr}main{padding-top:34px}}
+</style></head>
+<body>
+<header>
+  <span class="mark">CL</span>
+  <div class="brand"><b>Cribl Lighthouse</b><span>FedRAMP compliance tooling</span></div>
+</header>
+<main>
+  <p class="lede">Two tools over the authoritative <b>FedRAMP Rev5</b> control set —
+  built on the full <b>High (410-control)</b> baseline. Pick one to start.</p>
+  <div class="cards">
+    <a class="card" href="dashboard.html">
+      <span class="tag">Dashboard</span>
+      <h2>Lighthouse Dashboard</h2>
+      <p>Change intake, control mapping, RFC blast radius, SME review queue, and compliance posture across the full High baseline.</p>
+      <span class="go">Open dashboard <span class="arr">&rarr;</span></span>
+      <div class="meta">Posture &middot; Intake feed &middot; Controls &middot; Review &middot; Data sources</div>
+    </a>
+    <a class="card" href="gap.html">
+      <span class="tag">Gap Analysis</span>
+      <h2>Baseline Gap Analysis</h2>
+      <p>Select a current baseline and a target; see the exact control gap, family coverage, and a starter implementation response for every control.</p>
+      <span class="go">Open gap analysis <span class="arr">&rarr;</span></span>
+      <div class="meta">Low &middot; Moderate &middot; High &middot; expandable control text + draft responses</div>
+    </a>
+  </div>
+</main>
+<footer>
+  Control data: FedRAMP Rev5 baselines (GSA/fedramp-automation) &amp; NIST SP 800-53 Rev5.
+  Implementation language is starter draft only &mdash; tailor and validate with your 3PAO.
+</footer>
+</body></html>
