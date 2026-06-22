@@ -124,6 +124,10 @@
     <button class="chip" data-view="BEYOND">Beyond target<span class="ct" id="cBEYOND">0</span></button>
     <select class="fam-sel" id="famSel"><option value="">All families</option></select>
     <button class="btn" id="csv">Export CSV</button>
+    <div style="width:1px;height:22px;background:var(--line);margin:0 4px"></div>
+    <button class="btn" id="rptExec" title="Open a printable executive briefing in a new tab">Executive Brief</button>
+    <button class="btn" id="rptOps" title="Open a printable operational implementation plan in a new tab">Implementation Plan</button>
+    <button class="btn" id="rptMd" title="Download the current view as Markdown for Confluence/Notion">Markdown</button>
   </div>
   <div class="count-line" id="countLine">Click any control to read its statement and a starter implementation response.</div>
   <table><thead><tr><th>Control</th><th>Title</th><th>Family</th><th>Status</th><th>In baselines</th></tr></thead>
@@ -243,6 +247,234 @@ document.getElementById('csv').onclick=()=>{
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download=`gap_${from}_to_${to}_${view}.csv`.toLowerCase();a.click();URL.revokeObjectURL(a.href);
 };
+
+/* =====================================================================
+   PUBLISHABLE REPORTS — Executive Brief + Implementation Plan
+   Snapshot the current from→to gap, render a clean standalone HTML
+   page (Cribl-branded, print-to-PDF clean), or download Markdown.
+   ===================================================================== */
+function buildReportData(){
+  const b=compute();
+  const target=count(to), covered=b.SHARED.length, gap=b.GAP.length, beyond=b.BEYOND.length;
+  const pct=target?Math.round(covered/target*100):0;
+  // Family breakdown — only families that have controls in the target.
+  const fams={};
+  CONTROLS.forEach(c=>{if(!inFw(c,to))return;(fams[c.family]=fams[c.family]||{cov:0,gap:0,total:0});fams[c.family].total++;inFw(c,from)?fams[c.family].cov++:fams[c.family].gap++;});
+  const familyRows=Object.keys(fams).sort((a,b2)=>(fams[b2].gap-fams[a].gap)||a.localeCompare(b2)).map(f=>({
+    family:f, title:FAM_TITLE[f], cov:fams[f].cov, gap:fams[f].gap, total:fams[f].total,
+    pct:fams[f].total?Math.round(fams[f].cov/fams[f].total*100):0,
+  }));
+  const gapByFam={};
+  b.GAP.forEach(c=>{(gapByFam[c.family]=gapByFam[c.family]||[]).push(c);});
+  Object.keys(gapByFam).forEach(k=>gapByFam[k].sort((x,y)=>x.ref.localeCompare(y.ref,undefined,{numeric:true})));
+  return {
+    from, to, fromLabel:fLabel(from), toLabel:fLabel(to),
+    generatedAt:new Date().toISOString().slice(0,10),
+    counts:{target,covered,gap,beyond,pct},
+    familyRows, gapByFam,
+    gapControls:b.GAP.slice().sort((x,y)=>x.ref.localeCompare(y.ref,undefined,{numeric:true})),
+  };
+}
+
+const REPORT_CSS=`
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Archivo',sans-serif;color:#1a1d24;background:#f5f6f8;font-size:13px;line-height:1.55}
+  .page{max-width:880px;margin:24px auto;background:#fff;padding:48px 56px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-radius:8px}
+  .brand{display:flex;align-items:center;gap:14px;padding-bottom:18px;border-bottom:2px solid #f5a623;margin-bottom:32px}
+  .mark{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px;letter-spacing:.5px;color:#1a1303;background:#f5a623;padding:4px 9px;border-radius:5px}
+  .brand b{font-size:15px;font-weight:700} .brand small{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#6c7585;margin-top:2px;letter-spacing:.4px;text-transform:uppercase}
+  .brand .meta{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#6c7585;text-align:right}
+  h1{font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:8px;color:#0d1016}
+  h2{font-size:16px;font-weight:700;margin:28px 0 12px;color:#0d1016;padding-bottom:8px;border-bottom:1px solid #e0e3eb}
+  h3{font-size:13px;font-weight:600;margin:18px 0 6px;color:#1a1d24}
+  p{margin:8px 0;font-size:13px}
+  .lede{font-size:14px;color:#3d4555;line-height:1.6;margin-bottom:18px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0 8px}
+  .kpi{background:#f8f9fb;border:1px solid #e0e3eb;border-radius:8px;padding:14px;border-left:3px solid #98a3b8}
+  .kpi.gap{border-left-color:#f5a623} .kpi.cov{border-left-color:#3fb950} .kpi.pct{border-left-color:#2563eb}
+  .kpi .n{font-size:26px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums;color:#0d1016}
+  .kpi.gap .n{color:#b86e0c}
+  .kpi .l{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6c7585;margin-top:4px}
+  .verdict{background:#fff8eb;border:1px solid #f5d089;border-left:3px solid #f5a623;border-radius:8px;padding:12px 16px;margin:16px 0;font-size:13.5px;line-height:1.6}
+  .verdict b{color:#b86e0c}
+  table{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:12.5px}
+  th{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#6c7585;text-align:left;padding:8px 10px;border-bottom:1px solid #c8cdd8;background:#f8f9fb}
+  td{padding:8px 10px;border-bottom:1px solid #eef0f4;vertical-align:top}
+  tr:hover td{background:#fafbfc}
+  td.ref{font-family:'IBM Plex Mono',monospace;font-weight:600;color:#0d1016;white-space:nowrap;width:100px}
+  td.fam{font-family:'IBM Plex Mono',monospace;color:#6c7585;width:80px}
+  .bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:#eef0f4;margin-top:4px}
+  .bar .c{background:#3fb950} .bar .g{background:#f5a623}
+  .pillgap{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#b86e0c;background:#fff8eb;border:1px solid #f5d089;border-radius:4px;padding:2px 6px}
+  .footer{margin-top:36px;padding-top:18px;border-top:1px solid #e0e3eb;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6c7585;line-height:1.7}
+  .toolbar-rpt{position:fixed;top:14px;right:14px;display:flex;gap:8px;background:#fff;border:1px solid #e0e3eb;border-radius:8px;padding:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);z-index:99}
+  .toolbar-rpt button{font-family:'Archivo',sans-serif;font-size:12px;font-weight:600;background:#f8f9fb;border:1px solid #c8cdd8;border-radius:6px;padding:7px 12px;cursor:pointer;color:#1a1d24}
+  .toolbar-rpt button:hover{border-color:#f5a623;color:#b86e0c}
+  .checklist{list-style:none;padding:0;margin:6px 0}
+  .checklist li{padding:6px 0 6px 26px;position:relative;font-size:12.5px;border-bottom:1px solid #eef0f4}
+  .checklist li::before{content:"";position:absolute;left:0;top:9px;width:14px;height:14px;border:1.5px solid #c8cdd8;border-radius:3px}
+  .impact{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6c7585;margin-left:8px}
+  @media print{
+    body{background:#fff} .page{box-shadow:none;margin:0;padding:32px 40px;border-radius:0;max-width:none}
+    .toolbar-rpt{display:none}
+    h2{page-break-after:avoid} table,h2,h3{page-break-inside:avoid}
+  }
+`;
+
+function reportHeader(d){
+  return `<div class="brand">
+    <span class="mark">CL</span>
+    <div><b>Cribl Lighthouse</b><small>Baseline Gap Report</small></div>
+    <div class="meta">Generated ${d.generatedAt}<br>Cribl LogStream Cloud — Gov</div>
+  </div>`;
+}
+
+function reportFooter(){
+  return `<div class="footer">
+    Authoritative sources: <b>FedRAMP Rev5 baselines</b> (GSA fedramp-automation, OSCAL profiles)
+    and <b>NIST SP 800-53 Rev5</b> control catalog (usnistgov/oscal-content). Gaps are exact set
+    differences over baseline membership; not fuzzy crosswalks. Implementation guidance is starter
+    text only — tailor and validate with your 3PAO before incorporating into the SSP.<br><br>
+    Cribl Lighthouse · ${new Date().getFullYear()} · Internal use
+  </div>`;
+}
+
+function execBriefHTML(d){
+  const c=d.counts;
+  const verdict = c.gap===0
+    ? `Current state <b>${d.fromLabel}</b> already meets <b>${d.toLabel}</b>. ${c.beyond?`${c.beyond} controls in the source baseline fall outside the target.`:''}`
+    : `Moving from <b>${d.fromLabel}</b> to <b>${d.toLabel}</b> requires implementing <b>${c.gap}</b> additional controls. Today's coverage of the target is <b>${c.pct}%</b>.`;
+  const topFams = d.familyRows.filter(f=>f.gap>0).slice(0,5);
+  const topFamRows = topFams.length ? topFams.map(f=>`
+    <tr><td class="fam">${f.family}</td><td>${f.title}</td><td style="text-align:right">${f.gap}</td><td style="width:170px"><div class="bar"><div class="c" style="width:${f.total?(f.cov/f.total*100):0}%"></div><div class="g" style="width:${f.total?(f.gap/f.total*100):0}%"></div></div></td></tr>`).join('') : `<tr><td colspan="4"><em style="color:#6c7585">No families with gaps.</em></td></tr>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Executive Brief — ${d.fromLabel} → ${d.toLabel}</title><style>${REPORT_CSS}</style></head><body>
+    <div class="toolbar-rpt"><button onclick="window.print()">Print / save PDF</button><button onclick="window.close()">Close</button></div>
+    <div class="page">
+      ${reportHeader(d)}
+      <h1>Executive Brief: ${d.fromLabel} → ${d.toLabel}</h1>
+      <p class="lede">FedRAMP Rev5 baseline gap analysis for Cribl LogStream Cloud — Gov, current as of ${d.generatedAt}.</p>
+      <div class="verdict">${verdict}</div>
+      <div class="kpis">
+        <div class="kpi"><div class="n">${c.target}</div><div class="l">${d.toLabel} controls</div></div>
+        <div class="kpi cov"><div class="n">${c.covered}</div><div class="l">Already covered</div></div>
+        <div class="kpi gap"><div class="n">${c.gap}</div><div class="l">Gap to implement</div></div>
+        <div class="kpi pct"><div class="n">${c.pct}%</div><div class="l">Target coverage today</div></div>
+      </div>
+      <h2>What this means</h2>
+      <p>${c.gap===0
+        ? 'No remediation work is required to meet the target baseline. The team should focus on maintaining existing coverage and tracking changes via the Lighthouse intake feed.'
+        : `${c.gap} controls must move to <b>implemented</b> status to reach ${d.toLabel}. The lift is concentrated in the families below — a control-family-led plan typically retires the largest gaps first.`}</p>
+      ${c.gap>0?`<h2>Top families by gap size</h2>
+      <table><thead><tr><th>Family</th><th>Name</th><th style="text-align:right">Gap</th><th>Coverage</th></tr></thead><tbody>${topFamRows}</tbody></table>
+      <h2>Recommended next steps</h2>
+      <ul class="checklist">
+        <li>Assign a workstream lead per top-gap family (typically 5 leads cover ≥80% of the lift).</li>
+        <li>Sequence the implementation plan by family, not control number — most controls in a family share artifacts and procedures.</li>
+        <li>Stand up a 6-week cadence: design → implement → assess → operate. Track each control through the Lighthouse Action Board.</li>
+        <li>Plan a 3PAO readiness check before the formal assessment to surface evidence gaps early.</li>
+      </ul>`:''}
+      ${reportFooter()}
+    </div></body></html>`;
+}
+
+function opsPlanHTML(d){
+  const c=d.counts;
+  if(c.gap===0){
+    return execBriefHTML(d).replace('Executive Brief','Implementation Plan');
+  }
+  const famSections=Object.keys(d.gapByFam).sort().map(fam=>{
+    const ctrls=d.gapByFam[fam];
+    const rows=ctrls.map(ctl=>`<tr><td class="ref">${ctl.ref}${ctl.is_enhancement?'<span class="impact">ENH</span>':''}</td><td>${ctl.title}</td><td><span class="pillgap">${ctl.baselines.join(' · ')}</span></td></tr>`).join('');
+    return `<h3>${fam} — ${FAM_TITLE[fam]} <span class="impact">${ctrls.length} control${ctrls.length===1?'':'s'}</span></h3>
+      <table><thead><tr><th style="width:100px">Control</th><th>Title</th><th style="width:140px">In baselines</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }).join('');
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Implementation Plan — ${d.fromLabel} → ${d.toLabel}</title><style>${REPORT_CSS}</style></head><body>
+    <div class="toolbar-rpt"><button onclick="window.print()">Print / save PDF</button><button onclick="window.close()">Close</button></div>
+    <div class="page">
+      ${reportHeader(d)}
+      <h1>Implementation Plan: ${d.fromLabel} → ${d.toLabel}</h1>
+      <p class="lede">${c.gap} FedRAMP Rev5 controls to implement, grouped by family. Use this as the seed of an SSP gap remediation plan; assign owners and validate with your 3PAO.</p>
+      <div class="kpis">
+        <div class="kpi"><div class="n">${c.target}</div><div class="l">${d.toLabel} controls</div></div>
+        <div class="kpi cov"><div class="n">${c.covered}</div><div class="l">Already covered</div></div>
+        <div class="kpi gap"><div class="n">${c.gap}</div><div class="l">Gap to implement</div></div>
+        <div class="kpi pct"><div class="n">${c.pct}%</div><div class="l">Target coverage today</div></div>
+      </div>
+      <h2>Family-by-family gap</h2>
+      ${famSections}
+      ${reportFooter()}
+    </div></body></html>`;
+}
+
+function openReport(html){
+  const w=window.open('','_blank');
+  if(!w){ alert('Please allow popups to view the report.'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
+function reportMarkdown(d){
+  const c=d.counts;
+  const lines=[];
+  lines.push(`# Cribl Lighthouse — Baseline Gap Report`);
+  lines.push(``);
+  lines.push(`**System:** Cribl LogStream Cloud — Gov`);
+  lines.push(`**From:** ${d.fromLabel}  `);
+  lines.push(`**To:** ${d.toLabel}  `);
+  lines.push(`**Generated:** ${d.generatedAt}`);
+  lines.push(``);
+  lines.push(`## Summary`);
+  lines.push(``);
+  lines.push(`| Metric | Value |`);
+  lines.push(`| --- | ---: |`);
+  lines.push(`| ${d.toLabel} controls | ${c.target} |`);
+  lines.push(`| Already covered | ${c.covered} |`);
+  lines.push(`| Gap to implement | **${c.gap}** |`);
+  lines.push(`| Target coverage today | ${c.pct}% |`);
+  lines.push(``);
+  if(c.gap===0){
+    lines.push(`> **Verdict:** ${d.fromLabel} already meets ${d.toLabel}. No remediation required.`);
+    lines.push(``);
+  } else {
+    lines.push(`> **Verdict:** ${c.gap} controls to implement.`);
+    lines.push(``);
+    lines.push(`## Coverage by control family`);
+    lines.push(``);
+    lines.push(`| Family | Name | Total | Covered | Gap | % |`);
+    lines.push(`| --- | --- | ---: | ---: | ---: | ---: |`);
+    d.familyRows.forEach(f=>{
+      lines.push(`| ${f.family} | ${f.title} | ${f.total} | ${f.cov} | ${f.gap} | ${f.pct}% |`);
+    });
+    lines.push(``);
+    lines.push(`## Gap controls`);
+    lines.push(``);
+    Object.keys(d.gapByFam).sort().forEach(fam=>{
+      lines.push(`### ${fam} — ${FAM_TITLE[fam]} (${d.gapByFam[fam].length})`);
+      lines.push(``);
+      lines.push(`| Control | Title | In baselines |`);
+      lines.push(`| --- | --- | --- |`);
+      d.gapByFam[fam].forEach(ctl=>{
+        const enh=ctl.is_enhancement?' (enh)':'';
+        lines.push(`| ${ctl.ref}${enh} | ${ctl.title.replace(/\|/g,'\\|')} | ${ctl.baselines.join(' · ')} |`);
+      });
+      lines.push(``);
+    });
+  }
+  lines.push(`---`);
+  lines.push(`Source: FedRAMP Rev5 OSCAL profiles + NIST SP 800-53 Rev5. Gaps are exact set differences. Validate with your 3PAO before incorporating into an SSP.`);
+  return lines.join('\n');
+}
+
+document.getElementById('rptExec').onclick = ()=>openReport(execBriefHTML(buildReportData()));
+document.getElementById('rptOps').onclick  = ()=>openReport(opsPlanHTML(buildReportData()));
+document.getElementById('rptMd').onclick   = ()=>{
+  const d=buildReportData();
+  const md=reportMarkdown(d);
+  const blob=new Blob([md],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`gap_${from}_to_${to}.md`.toLowerCase();a.click();URL.revokeObjectURL(a.href);
+};
+
 render();
 </script>
 </body></html>

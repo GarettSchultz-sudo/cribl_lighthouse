@@ -113,6 +113,8 @@
   .deadline b{color:var(--ink);font-weight:600}
   .deadline.urgent b{color:var(--signal)}
   .deadline.past b{color:var(--red)}
+  .deadline.ref b{color:var(--muted-2);font-weight:500}
+  .deadline.ref{opacity:.65}
   /* ---------- impact matrix ---------- */
   .matrix{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
   table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -759,6 +761,9 @@ function renderFeed(){
     if(it.deadline){
       dlClass = d<0?'past':(d<=21?'urgent':'');
       dlText = d<0?`${Math.abs(d)}d overdue`:`${d}d left`;
+    } else if(it.needsAction === false){
+      dlClass = 'ref';
+      dlText = 'Reference only';
     }
     return `<div class="card" onclick="openTracker('${it.id}')">
       <div><div class="kind ${it.kind}">${it.kind}</div><span class="id">${it.id}</span></div>
@@ -1748,9 +1753,19 @@ let tkItem=null, tkData=null, tkTab='overview';
 function ensureState(id){ if(!trackerState[id]) trackerState[id]={}; }
 const trackerState={};
 
+async function fetchLiveBriefing(id){
+  if(!CONTROLS_API) return null;
+  try {
+    const r = await fetch(CONTROLS_API.replace(/\/$/,'') + '/review/' + encodeURIComponent(id));
+    if(!r.ok) return null;
+    return await r.json();
+  } catch(e){ return null; }
+}
+
 function openTracker(id){
   const it=ITEMS.find(x=>x.id===id); if(!it) return;
   tkItem=id; tkData=TRACKERS[id]||genericTracker(it); tkTab='overview'; ensureState(id);
+  tkData.liveBriefing = null;  // reset; populated async below
   // head
   const st=liveState(it);
   document.getElementById('tkHead').innerHTML=`
@@ -1762,15 +1777,29 @@ function openTracker(id){
       </div>
     </div>
     <div class="tk-prog"><div class="bar"><div id="tkProgFill"></div></div><span class="txt" id="tkProgTxt"></span></div>`;
-  // tabs
-  const tabs=[['overview','Overview'],['actions','Action Items']];
-  if(CHANGE_CONTROLS[id]) tabs.push(['blast','Blast Radius']);
-  if(tkData.reference) tabs.push(['reference','Reference']);
-  if(tkData.background) tabs.push(['background','Background']);
-  document.getElementById('tkTabs').innerHTML=tabs.map(([k,l])=>`<div class="tk-tab ${k==='overview'?'active':''}" data-tk="${k}" onclick="tkSwitch('${k}')">${l}</div>`).join('');
+  // tabs (Briefing slotted in async once it loads)
+  function setTabs(hasBriefing){
+    const tabs=[['overview','Overview']];
+    if(hasBriefing) tabs.push(['briefing','Briefing']);
+    tabs.push(['actions','Action Items']);
+    if(CHANGE_CONTROLS[id]) tabs.push(['blast','Blast Radius']);
+    if(tkData.reference) tabs.push(['reference','Reference']);
+    if(tkData.background) tabs.push(['background','Background']);
+    document.getElementById('tkTabs').innerHTML=tabs.map(([k,l])=>`<div class="tk-tab ${k===tkTab?'active':''}" data-tk="${k}" onclick="tkSwitch('${k}')">${l}</div>`).join('');
+  }
+  setTabs(false);
   renderTkPane();
   document.getElementById('tk').classList.add('show'); document.getElementById('tkBg').classList.add('show');
   document.getElementById('tkBody').scrollTop=0;
+  // pull the LLM briefing in the background
+  fetchLiveBriefing(id).then(b=>{
+    if(b && b.draft && b.draft.briefing){
+      tkData.liveBriefing = b;
+      tkTab = 'briefing';   // auto-switch — this is the highlight
+      setTabs(true);
+      renderTkPane();
+    }
+  });
 }
 function closeTracker(){ document.getElementById('tk').classList.remove('show'); document.getElementById('tkBg').classList.remove('show'); }
 function tkSwitch(tab){ tkTab=tab; document.querySelectorAll('.tk-tab').forEach(t=>t.classList.toggle('active',t.dataset.tk===tab)); renderTkPane(); document.getElementById('tkBody').scrollTop=0; }
@@ -1801,6 +1830,8 @@ function renderTkPane(){
         }).join('')}</div>
       </div>`;
     }).join('');
+  } else if(tkTab==='briefing'){
+    b.innerHTML=renderBriefing(tkData.liveBriefing);
   } else if(tkTab==='blast'){
     b.innerHTML=renderBlast();
   } else if(tkTab==='reference'){
@@ -1811,6 +1842,74 @@ function renderTkPane(){
   }
   updTkProgress();
 }
+function renderBriefing(rec){
+  if(!rec || !rec.draft) return '<p style="color:var(--muted);padding:30px">Briefing not available.</p>';
+  const d = rec.draft, br = d.briefing || {};
+  const phaseOrder = ['Immediate','Short-Term','Full Implementation','Grace Period'];
+  const stories = (d.stories||[]).slice();
+  const byPhase = {};
+  stories.forEach(s=>{ (byPhase[s.phase]=byPhase[s.phase]||[]).push(s); });
+  const phasesPresent = phaseOrder.filter(p=>byPhase[p]);
+
+  const phasePill = p => ({Immediate:'#dc2626','Short-Term':'#d97706','Full Implementation':'#2563eb','Grace Period':'#6b7280'}[p]||'#6b7280');
+  const priClass = p => ({Highest:'high','High':'high','Medium':'med','Low':'low'}[p]||'med');
+
+  const headline = `
+    <div class="tk-sum" style="border-left:3px solid #2563eb;padding-left:14px;margin-bottom:18px">
+      <h3 style="font-size:14px;color:var(--blue);margin-bottom:8px">PLAIN-LANGUAGE SUMMARY</h3>
+      <p style="font-size:13.5px;line-height:1.7">${br.plain_summary||''}</p>
+    </div>
+    <div class="tk-sum" style="border-left:3px solid #dc2626;padding-left:14px;margin-bottom:24px">
+      <h3 style="font-size:14px;color:#dc2626;margin-bottom:8px">CONSEQUENCES OF NON-COMPLIANCE</h3>
+      <p style="font-size:13.5px;line-height:1.7">${br.consequences||''}</p>
+    </div>`;
+
+  const epicBlock = d.epic ? `
+    <div class="tk-sum" style="background:var(--panel-2);padding:14px;border-radius:8px;margin-bottom:20px">
+      <h3 style="font-size:11px;letter-spacing:.6px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">PROPOSED EPIC</h3>
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px">${d.epic.summary||''}</div>
+      <div style="font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap">
+        ${d.epic.due_date?`<span>Due: <b style="color:var(--ink)">${d.epic.due_date}</b></span>`:''}
+        <span>Priority: <b style="color:var(--ink)">${d.epic.priority||'—'}</b></span>
+        <span>Stories: <b style="color:var(--ink)">${stories.length}</b></span>
+      </div>
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">
+        ${(d.epic.labels||[]).map(l=>`<span style="font-size:10px;padding:2px 7px;background:#1e293b;color:#94a3b8;border-radius:10px;font-family:var(--mono)">${l}</span>`).join('')}
+      </div>
+    </div>` : '';
+
+  const phaseBlocks = phasesPresent.map(phase=>{
+    const phaseStories = byPhase[phase];
+    const phaseNarrative = (br.phase_briefings||{})[phase] || '';
+    const storyCards = phaseStories.map(s=>{
+      const ac = (s.acceptance_criteria||[]).map(c=>`<li style="font-size:12px;color:var(--muted);margin:3px 0">${c}</li>`).join('');
+      return `<div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:8px 0;background:var(--panel)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px">
+          <div style="font-weight:600;font-size:13px;flex:1">${s.summary}</div>
+          <span class="tk-pri ${priClass(s.priority)}" style="flex-shrink:0">${s.priority||'Med'}</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">
+          ${s.due_date?`Due <b style="color:var(--ink)">${s.due_date}</b>`:'No due date'}
+        </div>
+        ${ac?`<div style="margin-top:8px"><div style="font-size:10.5px;letter-spacing:.5px;color:var(--muted-2);text-transform:uppercase;margin-bottom:4px">Acceptance criteria</div><ul style="margin:0;padding-left:18px">${ac}</ul></div>`:''}
+      </div>`;
+    }).join('');
+    return `<div class="tk-sec" style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${phasePill(phase)}"></span>
+        <h3 style="font-size:14px;font-weight:600;margin:0">${phase}</h3>
+        <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">${phaseStories.length} ${phaseStories.length===1?'story':'stories'}</span>
+      </div>
+      ${phaseNarrative?`<p style="font-size:12.5px;color:var(--muted);line-height:1.6;margin:0 0 10px;font-style:italic">${phaseNarrative}</p>`:''}
+      ${storyCards}
+    </div>`;
+  }).join('');
+
+  const meta = `<p style="font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-bottom:14px">classifier: ${d.classifier||'—'} · ${stories.length} stories across ${phasesPresent.length} phases · status: ${rec.status||'pending'}</p>`;
+
+  return meta + headline + epicBlock + phaseBlocks;
+}
+
 function tkToggleSec(id){ document.getElementById('tksec-'+id)?.classList.toggle('collapsed'); }
 function tkToggleBg(i){ document.getElementById('bgc-'+i)?.classList.toggle('open'); }
 function tkToggleDetail(e,id){ e.stopPropagation(); const el=document.getElementById(id); const o=el.classList.toggle('open'); e.target.textContent=o?'▾ Why & how':'▸ Why & how'; }
@@ -1830,8 +1929,43 @@ function updTkProgress(){
   const t=document.getElementById('tkProgTxt'); if(t) t.innerHTML=`<b>${done}</b> of ${total} items complete (${pct}%)`;
 }
 
-setSync(); renderStats(); renderFeed(); renderMatrix(); renderBoard(); renderSources(); loadLiveFeeds();
-seedStatus(); renderPosture();
+/* =====================================================================
+   LIVE DATA SHIM — when CONTROLS_API is set, replace seeded ITEMS/TASKS
+   with what the backend has. Fails open: a backend outage falls back
+   to the bundled illustrative data so the page is never blank.
+   ===================================================================== */
+async function loadLiveItemsAndTasks(){
+  if(!CONTROLS_API) return;
+  const base = CONTROLS_API.replace(/\/$/,'');
+  async function pull(path){
+    try { const r = await fetch(base + path); if(r.ok) return await r.json(); }
+    catch(e){ console.warn('live', path, 'unavailable:', e); }
+    return null;
+  }
+  const j_feed = await pull('/feed');
+  if(j_feed && Array.isArray(j_feed.items) && j_feed.items.length){
+    ITEMS.length = 0;
+    for(const it of j_feed.items) ITEMS.push(it);
+  }
+  const j_tasks = await pull('/tasks');
+  if(j_tasks && Array.isArray(j_tasks.tasks) && j_tasks.tasks.length){
+    TASKS = j_tasks.tasks;
+  }
+  const j_changes = await pull('/change-controls');
+  if(j_changes && j_changes.changes){
+    Object.keys(j_changes.changes).forEach(k=>{ CHANGE_CONTROLS[k] = j_changes.changes[k]; });
+  }
+  const j_poams = await pull('/poams');
+  if(j_poams && Array.isArray(j_poams.poams) && j_poams.poams.length){
+    POAMS = j_poams.poams;
+  }
+}
+
+(async () => {
+  await loadLiveItemsAndTasks();
+  setSync(); renderStats(); renderFeed(); renderMatrix(); renderBoard(); renderSources(); loadLiveFeeds();
+  seedStatus(); renderPosture();
+})();
 </script>
 </body>
 </html>
