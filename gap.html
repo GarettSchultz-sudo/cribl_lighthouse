@@ -71,6 +71,13 @@
   .bl{font-family:var(--mono);font-size:9.5px;letter-spacing:.3px;padding:2px 6px;border-radius:4px;border:1px solid var(--line)}
   .bl.HIGH{color:var(--signal);border-color:var(--signal-dim);background:#241a06}
   .bl.MODERATE{color:#79b8ff;border-color:#1b3a5c;background:#0f2236} .bl.LOW{color:var(--muted);background:var(--panel-2)}
+  .bl.IL2{color:#a3aab9;border-color:#2a3142;background:#1c2230}
+  .bl.IL4{color:#7fb88a;border-color:#1f3d29;background:#0f2517}
+  .bl.IL5{color:#d977a8;border-color:#4a1a37;background:#2a0e1f}
+  .bl.IL6{color:#e15a5a;border-color:#5a1c1c;background:#2c0d0d}
+  .advisory{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.4px;color:#f5a623;background:#241a06;border:1px solid var(--signal-dim);border-radius:3px;padding:1px 5px;margin-left:6px;text-transform:uppercase;cursor:help}
+  .advisory-banner{margin-top:8px;padding:9px 13px;background:#241a06;border:1px solid var(--signal-dim);border-left:3px solid var(--signal);border-radius:6px;font-family:var(--mono);font-size:11px;color:#f5d089;line-height:1.55}
+  .advisory-banner b{color:var(--signal)}
   .rowtag{font-family:var(--mono);font-size:9.5px;padding:2px 6px;border-radius:4px;white-space:nowrap}
   .rowtag.GAP{color:var(--signal);background:#241a06;border:1px solid var(--signal-dim)}
   .rowtag.SHARED{color:var(--ok);background:var(--ok-dim);border:1px solid #1d5128}
@@ -112,6 +119,7 @@
     <button class="swap" id="swap">&#8644; swap</button>
     <div class="verdict" id="verdict"></div>
   </div>
+  <div id="advisoryBanner" class="advisory-banner" style="display:none"></div>
   <div class="stats" id="stats"></div>
   <div class="h">Coverage by control family</div>
   <div class="legend"><span><i style="background:var(--covered)"></i>Already covered</span><span><i style="background:var(--signal)"></i>Gap to implement</span></div>
@@ -141,9 +149,489 @@ const FRAMEWORKS = [
   {id:'LOW',      label:'FedRAMP Rev5 Low'},
   {id:'MODERATE', label:'FedRAMP Rev5 Moderate'},
   {id:'HIGH',     label:'FedRAMP Rev5 High'},
+  {id:'IL2',      label:'DoD IL2 (Public / Non-CUI)', advisory:true, base:'LOW',      cite:'DoD CC SRG v1r4 \u00a75.1'},
+  {id:'IL4',      label:'DoD IL4 (CUI)',              advisory:true, base:'MODERATE', cite:'DoD CC SRG v1r4 \u00a75.2'},
+  {id:'IL5',      label:'DoD IL5 (CUI \u2014 Higher Sensitivity)', advisory:true, base:'HIGH', cite:'DoD CC SRG v1r4 \u00a75.3 + CNSSI 1253'},
+  {id:'IL6',      label:'DoD IL6 (Classified \u2014 Secret)',       advisory:true, base:'HIGH', cite:'DoD CC SRG v1r4 \u00a75.4 + CNSSI 1253 (partial; classified annexes excluded)'},
 ];
+
+/* =====================================================================
+   DoD Impact Level overlays (ADVISORY \u2014 hand-curated from public DoD
+   CC SRG v1r4 + CNSSI 1253. NOT machine-readable from OSCAL. Validate
+   with a DCSA assessor before relying on these for an authorization
+   package. Each entry is the delta on top of the named FedRAMP base.)
+   ===================================================================== */
+const IL_OVERLAYS = {
+  IL2: {
+    base: 'LOW',
+    note: 'IL2 inherits FedRAMP Low. No additional controls per CC SRG v1r4 \u00a75.1.',
+    additions: [],   // refs from the catalog to add
+  },
+  IL4: {
+    base: 'MODERATE',
+    note: 'IL4 = FedRAMP Moderate + DoD CUI overlay (CC SRG v1r4 \u00a75.2). Adds boundary, audit, and admin-access enhancements.',
+    additions: [
+      'AC-2(11)','AC-2(12)','AC-2(13)','AC-3(7)',
+      'AC-6(8)','AC-17(6)',
+      'AU-3(1)','AU-12(1)','AU-12(3)',
+      'CA-3(6)',
+      'IA-2(5)','IA-2(6)','IA-3(1)',
+      'SC-7(8)','SC-7(10)','SC-7(20)','SC-7(21)',
+      'SI-4(10)','SI-4(11)','SI-4(19)',
+    ],
+  },
+  IL5: {
+    base: 'HIGH',
+    note: 'IL5 = FedRAMP High + DoD CC SRG \u00a75.3 + CNSSI 1253 NSS overlay. Adds dedicated infrastructure, key management, and enhanced supply-chain controls.',
+    additions: [
+      'AC-2(11)','AC-2(12)','AC-2(13)','AC-3(7)','AC-3(9)',
+      'AC-6(8)','AC-17(6)','AC-20(3)',
+      'AU-3(1)','AU-9(3)','AU-12(1)','AU-12(3)',
+      'CA-3(6)','CA-7(5)',
+      'CM-3(8)','CM-5(6)',
+      'IA-2(5)','IA-2(6)','IA-3(1)','IA-3(4)',
+      'IR-4(11)','IR-4(12)',
+      'MA-4(3)','MA-4(7)',
+      'MP-6(3)',
+      'PE-3(2)','PE-3(3)',
+      'SA-9(3)','SA-9(6)','SA-12(11)',
+      'SC-7(8)','SC-7(10)','SC-7(20)','SC-7(21)','SC-7(22)',
+      'SC-12(2)','SC-12(3)','SC-13','SC-23(3)',
+      'SI-4(10)','SI-4(11)','SI-4(19)','SI-4(22)',
+      'SR-3(3)','SR-5(2)','SR-6(1)',
+    ],
+  },
+  IL6: {
+    base: 'HIGH',
+    note: 'IL6 = FedRAMP High + IL5 overlay + classified-system additions per CNSSI 1253 (classified annexes excluded). Rendering shows the publicly defensible subset; full IL6 lift is larger.',
+    additions: [], // populated below to be IL5's additions plus the IL6 deltas
+  },
+};
+// IL6 = IL5 set + additional classified-system controls publicly cited in CNSSI 1253.
+IL_OVERLAYS.IL6.additions = [
+  ...IL_OVERLAYS.IL5.additions,
+  'AC-4(8)','AC-4(17)','AC-4(21)',
+  'AU-10','AU-10(2)','AU-10(3)',
+  'IA-7',
+  'PE-3(4)','PE-3(5)',
+  'SC-8(3)','SC-8(4)','SC-12(1)','SC-16(1)',
+  'SI-7(6)','SI-7(15)',
+];
+
+/* IL-overlay-only controls — refs that DoD pulls from NIST 800-53 Rev5 but
+   which aren't part of any FedRAMP baseline. We inject lightweight catalog
+   stubs so the gap tool can count and list them. Real implementation text
+   is intentionally not provided here — these are advisory and need DCSA-
+   validated language before going into an SSP. Family titles match
+   FAM_TITLE; baselines are empty (overlay membership is added later by the
+   IL membership pass). */
+/* Helper used by stub impl entries — produces the same Approach / Point /
+   Evidence shape as the FedRAMP catalog impl text, with a DoD overlay
+   warning prepended so the source is unambiguous. */
+function _ilImpl(approach, points, evidence){
+  const ptsHTML = points.map(p=>`<li>${p}</li>`).join('');
+  return `<p class='impl-warn'>DoD IL overlay starter — validate with DCSA / your 3PAO. Not an authoritative response.</p>`
+    + `<p><b>Approach.</b> ${approach}</p>`
+    + `<p><b>Point-by-point response.</b></p><ul class='impl-list'>${ptsHTML}</ul>`
+    + `<p><b>Typical evidence.</b> ${evidence}</p>`;
+}
+
+const IL_STUBS = [
+  // ---------- AC family ----------
+  {ref:'AC-3(7)', title:'Role-Based Access Control',
+   stmt:'<p>Enforce a role-based access control policy over defined subjects and objects, and control access based upon defined roles and users authorized to assume such roles.</p>',
+   impl: _ilImpl(
+     'Role definitions are codified in our IdP and IaC; users are granted only the roles required for their job, and roles are inherited rather than directly assigned to subjects.',
+     ['Roles are defined as code in the IdP/IAM platform and reviewed quarterly.',
+      'Users are assigned to roles via group membership only; no direct grants on protected objects.',
+      'Role-to-permission mappings are versioned, peer-reviewed in pull requests, and audited.'],
+     'IdP role catalog export, group membership snapshot, IaC repo with role definitions, last quarterly review report.')},
+  {ref:'AC-3(9)', title:'Controlled Release',
+   stmt:'<p>Release information outside of the system only if the receiving system or component provides defined controls and the release is consistent with organizational policy.</p>',
+   impl: _ilImpl(
+     'Outbound data flows to external systems are inventoried and gated; release is permitted only to receiving systems that have validated controls and a documented agreement.',
+     ['Outbound integrations require a security review documenting the receiving system\'s controls.',
+      'Release is enforced via egress allow-lists keyed to approved destinations.',
+      'Periodic re-attestation of receiving-system controls is recorded in the integration registry.'],
+     'Integration registry, egress allow-list config, signed inter-system agreements, attestation log.')},
+  {ref:'AC-4(8)', title:'Security Policy Filters',
+   stmt:'<p>Enforce information flow control using security policy filters as a basis for flow control decisions for defined information flows.</p>',
+   impl: _ilImpl(
+     'Information flows are filtered at the boundary using a documented policy filter set (allow/deny rules, content inspection, and DLP), with rules versioned and tested in CI.',
+     ['Filter rules are stored as code and reviewed for every change.',
+      'Filters apply to all in-scope flows including admin and management planes.',
+      'Filter bypass requires an exception ticket with security approval.'],
+     'Filter ruleset repo, CI test results, exception ticket history, filter coverage report.')},
+  {ref:'AC-4(17)', title:'Domain Authentication',
+   stmt:'<p>Uniquely identify and authenticate source and destination points by organization, system, application, service, or individual for information transfer.</p>',
+   impl: _ilImpl(
+     'Inter-domain flows are authenticated end-to-end using mTLS (or signed message envelopes) so that both source and destination identity are verifiable on each call.',
+     ['Service-to-service traffic uses mTLS with certificates issued by our internal PKI.',
+      'Service identity is derived from workload identity (e.g., SPIFFE) tied to the deploying pipeline.',
+      'Authentication failures are logged with both endpoints and alerted on.'],
+     'PKI policy, workload identity issuer config, sample mTLS handshake logs, failure alerts.')},
+  {ref:'AC-4(21)', title:'Physical or Logical Separation of Information Flows',
+   stmt:'<p>Separate information flows logically or physically using defined mechanisms and/or types of information to accomplish defined required separations.</p>',
+   impl: _ilImpl(
+     'High-sensitivity flows traverse separate VPCs/subnets with no shared transit path; separation is enforced by routing tables and security groups, not relied on through software.',
+     ['Sensitivity-tier-specific VPCs are provisioned for each environment.',
+      'Cross-tier traffic is denied by default and allowed only through audited proxies.',
+      'Network architecture diagrams are kept current and reviewed annually.'],
+     'VPC topology, route tables, security group config, network diagram, annual review.')},
+  {ref:'AC-17(6)', title:'Protection of Mechanism Information',
+   stmt:'<p>Protect information about remote access mechanisms from unauthorized use and disclosure.</p>',
+   impl: _ilImpl(
+     'Configuration of remote-access infrastructure (bastion, VPN, SASE) and the IPs / endpoints exposing it are treated as sensitive — restricted in inventory, redacted in public docs, and rotated on suspected compromise.',
+     ['Remote-access mechanism details are stored in a restricted CMDB tier.',
+      'Public docs and marketing materials reference no specific endpoints.',
+      'Endpoint rotation runbooks exist and are tested annually.'],
+     'CMDB access logs, redaction review, rotation drill record.')},
+  {ref:'AC-20(3)', title:'Network Accessible Storage Devices — Prohibited Use',
+   stmt:'<p>Prohibit the use of organizationally defined network accessible storage devices in external systems.</p>',
+   impl: _ilImpl(
+     'Use of consumer/external network storage (Dropbox, Google Drive, etc.) for federal data is prohibited by policy and blocked at the egress layer; sanctioned alternatives are documented.',
+     ['Acceptable use policy explicitly prohibits external NAS for federal data.',
+      'CASB / egress controls block known external storage providers.',
+      'Sanctioned-tooling list is published and kept current.'],
+     'AUP, CASB block lists, sanctioned-tools registry, training acknowledgment.')},
+
+  // ---------- AU family ----------
+  {ref:'AU-10', title:'Non-Repudiation',
+   stmt:'<p>Provide irrefutable evidence that an individual (or process acting on behalf of an individual) has performed defined actions to be covered by non-repudiation.</p>',
+   impl: _ilImpl(
+     'High-impact administrative actions are signed by the actor\'s identity (cryptographic signature on the audit record) and stored append-only so the actor cannot later deny the action.',
+     ['Privileged actions are gated through a workflow that signs the request with the actor\'s key.',
+      'Audit records are written to a WORM/append-only store.',
+      'Quarterly sample of signatures is verified out-of-band.'],
+     'Audit record schema, signing key inventory, WORM store retention policy, quarterly verification report.')},
+  {ref:'AU-10(2)', title:'Validate Binding of Information Producer Identity',
+   stmt:'<p>Validate the binding of the information producer identity to the information at defined frequencies and perform defined actions in the event of a validation error.</p>',
+   impl: _ilImpl(
+     'On a defined cadence (and on every read for high-impact records), we re-verify that the producer identity attached to a record is still trusted and that the record signature is valid.',
+     ['Signature validation runs on every read of high-impact records.',
+      'Producer identity revocation is checked against the IdP\'s active key set.',
+      'Validation failures route to the security on-call.'],
+     'Validation service logs, revocation list, paging records.')},
+  {ref:'AU-10(3)', title:'Chain of Custody',
+   stmt:'<p>Maintain reviewer/releaser identity and credentials within the established chain of custody for information reviewed or released.</p>',
+   impl: _ilImpl(
+     'Records that move between trust domains carry a chain-of-custody envelope listing every reviewer/releaser identity, timestamp, and action; the envelope is hashed and signed at each hop.',
+     ['Custody envelope schema is part of the record format.',
+      'Each transfer hop adds a signed entry; tampering invalidates the chain.',
+      'Custody review is exercised annually as part of incident drills.'],
+     'Envelope schema, sample chained record, drill report.')},
+
+  // ---------- CA family ----------
+  {ref:'CA-7(5)', title:'Independent Assessors',
+   stmt:'<p>Ensure that an independent assessor (or assessment team) is used to perform monitoring activities.</p>',
+   impl: _ilImpl(
+     'Continuous monitoring assessments are performed by a 3PAO (or independent internal team without operational responsibility for the assessed system) on a documented schedule.',
+     ['3PAO contract scopes ConMon monitoring assessments separately from initial assessment.',
+      'Internal assessors (when used) report outside the system owner\'s chain of command.',
+      'Independence is documented in the assessment plan and reviewed annually.'],
+     '3PAO SOW, assessment plan, independence attestation.')},
+
+  // ---------- CM family ----------
+  {ref:'CM-3(8)', title:'Prevent or Restrict Configuration Changes',
+   stmt:'<p>Prevent or restrict configuration changes to defined system components under defined circumstances.</p>',
+   impl: _ilImpl(
+     'Production configuration changes are blocked outside approved change windows / without an approved change ticket; restriction is enforced in the deployment pipeline, not relied on through policy alone.',
+     ['Pipeline policy requires a CR/ticket reference for prod-targeted merges.',
+      'Out-of-window deploys require a documented break-glass approval.',
+      'Break-glass usage is reviewed weekly.'],
+     'Pipeline policy config, break-glass log, weekly review minutes.')},
+  {ref:'CM-5(6)', title:'Limit Library Privileges',
+   stmt:'<p>Limit privileges to change software resident within software libraries.</p>',
+   impl: _ilImpl(
+     'Write access to internal package repositories and shared libraries is restricted to a small set of identities; changes go through code review and signing.',
+     ['Library write tokens are scoped to release pipelines, not human users.',
+      'Library publishes are signed with a key held in HSM.',
+      'Quarterly privilege review enumerates accounts with write capability.'],
+     'Token inventory, HSM signing audit, privilege review record.')},
+
+  // ---------- IA family ----------
+  {ref:'IA-3(1)', title:'Cryptographic Bidirectional Authentication',
+   stmt:'<p>Authenticate defined devices before establishing defined types of connection using bidirectional authentication that is cryptographically based.</p>',
+   impl: _ilImpl(
+     'Devices establishing protected connections present a hardware-rooted credential and validate the peer\'s credential via mTLS; one-way authentication is not used for any control-plane path.',
+     ['Devices receive certs at provisioning rooted in our internal CA.',
+      'mTLS is required on all control-plane connections.',
+      'Cert lifecycle (issue/rotate/revoke) is automated.'],
+     'Provisioning record, mTLS config, cert lifecycle dashboard.')},
+  {ref:'IA-3(4)', title:'Device Attestation',
+   stmt:'<p>Handle device identification and authentication based on attestation by defined configuration management process.</p>',
+   impl: _ilImpl(
+     'Device identity claims are bound to attested hardware/software configuration measured at boot; only attested devices receive working credentials.',
+     ['Boot measurements are signed by TPM/secure element and validated by our attestation service.',
+      'Failed attestation results in credential denial and an alert.',
+      'Attestation policy is reviewed annually.'],
+     'Attestation service logs, failure alert config, policy review record.')},
+  {ref:'IA-7', title:'Cryptographic Module Authentication',
+   stmt:'<p>Implement mechanisms for authentication to a cryptographic module that meet the requirements of applicable laws, executive orders, directives, policies, regulations, standards, and guidelines.</p>',
+   impl: _ilImpl(
+     'All cryptographic modules in scope (HSMs, FIPS 140 endpoints) require multi-factor authentication for operator access; module operator activity is logged separately from application audit.',
+     ['HSM operator login uses a smart card + PIN factor.',
+      'Operator activity is recorded in HSM audit logs and shipped to SIEM.',
+      'Module roles (User / Crypto Officer) are separated.'],
+     'HSM access policy, SIEM HSM channel, role assignment record.')},
+
+  // ---------- IR family ----------
+  {ref:'IR-4(12)', title:'Malicious Code and Forensic Analysis',
+   stmt:'<p>Analyze malicious code and other residual artifacts remaining in the system after the incident.</p>',
+   impl: _ilImpl(
+     'Post-incident, suspected malicious artifacts are isolated and analyzed in a sandbox by the IR team; findings feed detection rules and the post-incident report.',
+     ['Sandbox environment is provisioned and isolated from production.',
+      'IR runbook includes mandatory artifact-analysis step.',
+      'Findings are converted to detection rules within a defined SLA.'],
+     'IR runbook, sandbox infra, sample analysis report, detection-rule changelog.')},
+
+  // ---------- MA family ----------
+  {ref:'MA-4(7)', title:'Disconnection Verification',
+   stmt:'<p>Verify session and network connectivity termination after the completion of nonlocal maintenance.</p>',
+   impl: _ilImpl(
+     'After remote maintenance sessions, automated checks confirm that maintenance accounts, VPN tunnels, and bastion sessions have been disconnected; lingering sessions trigger an alert.',
+     ['Session termination is logged by the bastion / VPN gateway.',
+      'A scheduled job checks for stale maintenance sessions.',
+      'Stale sessions auto-terminate and page the security on-call.'],
+     'Bastion logs, scheduled-job config, paging record.')},
+
+  // ---------- PE family ----------
+  {ref:'PE-3(2)', title:'Facility and Systems',
+   stmt:'<p>Perform security checks at the physical perimeter of the facility or system for unauthorized exfiltration of information or removal of system components.</p>',
+   impl: _ilImpl(
+     'Cloud provider facility controls are inherited; for any on-prem or co-located components, perimeter inspection is performed by facility staff with documented procedures and logs.',
+     ['Cloud provider physical-controls attestation is on file.',
+      'On-prem perimeter inspection schedule is documented.',
+      'Inspection logs are retained per the records policy.'],
+     'Provider attestation (e.g., AWS SOC 2), inspection schedule, inspection log sample.')},
+  {ref:'PE-3(3)', title:'Continuous Guards',
+   stmt:'<p>Employ guards to control access to areas within the facility officially designated as publicly accessible.</p>',
+   impl: _ilImpl(
+     'Inherited from cloud provider for compute facilities; for organization-managed offices that host federal data, guards are present per the facility security plan.',
+     ['Provider physical-security attestation is referenced.',
+      'Office facility security plan documents guard coverage where applicable.',
+      'Plan is reviewed annually.'],
+     'Provider attestation, facility security plan, annual review.')},
+  {ref:'PE-3(4)', title:'Lockable Casings',
+   stmt:'<p>Use lockable physical casings to protect defined system components from unauthorized physical access.</p>',
+   impl: _ilImpl(
+     'Inherited from cloud provider; for on-prem hardware (if any), chassis are physically locked and key control is documented.',
+     ['Provider attestation covers data-center hardware.',
+      'Any on-prem hardware uses lockable casings with logged key custody.',
+      'Lock and key inventory is reviewed annually.'],
+     'Provider attestation, key custody log, on-prem hardware inventory.')},
+  {ref:'PE-3(5)', title:'Tamper Protection',
+   stmt:'<p>Employ defined security safeguards to detect or prevent physical tampering or alteration of defined hardware components within the system.</p>',
+   impl: _ilImpl(
+     'Inherited from cloud provider for IaaS components; tamper-evident seals and inspection routines are documented for any on-prem hardware.',
+     ['Provider tamper controls are referenced in the SSP inheritance section.',
+      'On-prem hardware uses tamper-evident seals where applicable.',
+      'Seal inspection is part of facility audit.'],
+     'Provider documentation, on-prem hardware photos, audit checklist.')},
+
+  // ---------- SA family ----------
+  {ref:'SA-9(3)', title:'Establish and Maintain Trust Relationship with Providers',
+   stmt:'<p>Establish, document, and maintain trust relationships with external service providers based on defined requirements, properties, factors, or conditions.</p>',
+   impl: _ilImpl(
+     'External-provider relationships are documented in a vendor registry with required compliance attestations (FedRAMP / SOC 2 / ISO 27001), data-processing terms, and an annual reattestation date.',
+     ['Vendor registry is the source of truth for provider trust evidence.',
+      'Each provider has a current attestation on file.',
+      'Re-attestation cadence is enforced via reminders and a vendor review.'],
+     'Vendor registry export, attestation files, vendor review minutes.')},
+  {ref:'SA-9(6)', title:'Organization-Controlled Cryptographic Keys',
+   stmt:'<p>Maintain exclusive control of cryptographic keys for encrypted material stored or transmitted through an external system.</p>',
+   impl: _ilImpl(
+     'For data hosted in or transiting external systems, encryption keys are held in our HSM/KMS and are never exported to the provider; provider-managed keys are used only for non-federal data.',
+     ['Tenancy is configured for customer-managed keys (BYOK / HYOK).',
+      'Key material never leaves the HSM in plaintext.',
+      'Key access is segregated from provider operator access.'],
+     'KMS configuration, HSM audit log, BYOK contract terms.')},
+  {ref:'SA-12(11)', title:'Penetration Testing and Analysis',
+   stmt:'<p>Employ defined penetration testing techniques and analyses on supply-chain elements.</p>',
+   impl: _ilImpl(
+     'Annual third-party penetration tests cover supply-chain vectors including build pipelines and third-party dependencies; findings are tracked to closure in the POA&M.',
+     ['Pentest scope explicitly includes build / release infrastructure.',
+      'Third-party dependency analysis (SCA) runs on every build.',
+      'Findings flow into the POA&M with severity-driven SLAs.'],
+     'Pentest report, SCA tool config, POA&M extract.')},
+
+  // ---------- SC family ----------
+  {ref:'SC-7(22)', title:'Separate Subnets for Connecting to Different Security Domains',
+   stmt:'<p>Implement separate network addresses to connect to systems in different security domains.</p>',
+   impl: _ilImpl(
+     'Connections to systems in different security domains use distinct, dedicated network paths (separate VPCs / subnets / VPNs) so cross-domain traffic cannot share infrastructure.',
+     ['Each security domain has dedicated network plumbing.',
+      'Domain-to-domain traffic transits an audited gateway, not direct routing.',
+      'Network architecture documents the separation.'],
+     'Network diagram, VPC peering audit, gateway config.')},
+  {ref:'SC-8(3)', title:'Cryptographic Protection for Message Externals',
+   stmt:'<p>Implement cryptographic mechanisms to protect message externals unless otherwise protected by alternative physical controls.</p>',
+   impl: _ilImpl(
+     'Beyond payload encryption, traffic shape and metadata that could leak operational information are protected via TLS with padding / ESP / equivalent so that an observer cannot derive sensitive externals.',
+     ['Traffic protection extends to message-external metadata where feasible.',
+      'TLS 1.3 with appropriate cipher suite is enforced.',
+      'Metadata leakage scenarios are reviewed during threat modeling.'],
+     'TLS config, threat-model artifact, periodic external-traffic capture review.')},
+  {ref:'SC-8(4)', title:'Conceal or Randomize Communications',
+   stmt:'<p>Implement cryptographic mechanisms to conceal or randomize communication patterns unless otherwise protected.</p>',
+   impl: _ilImpl(
+     'For high-sensitivity flows, traffic shaping / cover-traffic patterns are applied so that timing or volume cannot be used to infer activity; lower-sensitivity flows rely on baseline TLS protections.',
+     ['Traffic shaping policy is documented per data tier.',
+      'Cover-traffic mechanisms are tested annually.',
+      'Logging captures shaping decisions for auditability.'],
+     'Traffic shaping policy, test report, sample logs.')},
+  {ref:'SC-12(1)', title:'Availability',
+   stmt:'<p>Maintain availability of information in the event of the loss of cryptographic keys by users.</p>',
+   impl: _ilImpl(
+     'Customer-managed keys are escrowed in a separate HSM with break-glass recovery; loss of an active key does not result in permanent data loss.',
+     ['Key escrow is configured for all customer-managed key tiers.',
+      'Recovery procedure is documented in the IR playbook.',
+      'Recovery is exercised annually.'],
+     'Escrow architecture diagram, IR playbook, recovery drill report.')},
+  {ref:'SC-12(2)', title:'Symmetric Keys',
+   stmt:'<p>Produce, control, and distribute symmetric cryptographic keys using NIST FIPS-validated or NSA-approved key management technology and processes.</p>',
+   impl: _ilImpl(
+     'Symmetric keys are generated inside FIPS 140-validated HSMs; distribution uses approved key-wrapping mechanisms; export of plaintext keys is disabled in HSM policy.',
+     ['HSM is on the FIPS 140 validated module list.',
+      'Key wrapping uses an approved KEK schema.',
+      'HSM policy forbids plaintext export.'],
+     'FIPS validation cert, HSM policy export, key ceremony record.')},
+  {ref:'SC-12(3)', title:'Asymmetric Keys',
+   stmt:'<p>Produce, control, and distribute asymmetric cryptographic keys using NIST FIPS-validated or NSA-approved key management technology and processes.</p>',
+   impl: _ilImpl(
+     'Asymmetric key pairs are generated inside FIPS 140-validated HSMs; private keys are non-exportable; certificates are issued through our internal PKI with documented ceremonies.',
+     ['HSM enforces non-exportable private keys.',
+      'PKI ceremonies are scripted and witnessed.',
+      'Certificate inventory is tracked and rotated on schedule.'],
+     'FIPS validation cert, ceremony script, certificate inventory.')},
+  {ref:'SC-13', title:'Cryptographic Protection',
+   stmt:'<p>Determine the cryptographic uses and types of cryptography required for each use; implement defined cryptography in accordance with applicable laws and standards.</p>',
+   impl: _ilImpl(
+     'A cryptographic standard documents which algorithms / key sizes are required for each data tier; deviations require security exception with risk acceptance.',
+     ['Crypto standard names approved algorithms and minimum key lengths.',
+      'Library / SDK choices are restricted to approved primitives.',
+      'Deviations require an exception ticket with explicit risk acceptance.'],
+     'Crypto standard doc, approved-libraries list, exception register.')},
+  {ref:'SC-16(1)', title:'Integrity Verification',
+   stmt:'<p>Verify the integrity of transmitted security and privacy attributes.</p>',
+   impl: _ilImpl(
+     'Records that carry security/privacy attributes (sensitivity labels, tenant tags) are signed; receivers verify the signature and reject any record with an invalid or missing attribute envelope.',
+     ['Attribute envelope is part of the canonical record format.',
+      'Receivers fail-closed on missing or invalid attributes.',
+      'Verification failures are logged and alerted.'],
+     'Record format spec, receiver code review, failure-alert config.')},
+  {ref:'SC-23(3)', title:'Unique System-Generated Session Identifiers',
+   stmt:'<p>Generate a unique session identifier for each session and recognize only session identifiers that are system-generated.</p>',
+   impl: _ilImpl(
+     'Session identifiers are generated server-side using a cryptographic RNG; client-supplied identifiers are rejected; identifiers rotate on privilege change and on logout.',
+     ['Session creation uses cryptographic RNG with adequate entropy.',
+      'Server rejects any externally-supplied identifier.',
+      'Identifiers rotate on auth context change.'],
+     'Session manager code review, server config, sample session log.')},
+
+  // ---------- SI family ----------
+  {ref:'SI-4(22)', title:'Unauthorized Network Services',
+   stmt:'<p>Detect network services that have not been authorized or approved and audit / alert defined personnel.</p>',
+   impl: _ilImpl(
+     'Continuous network discovery compares observed services against an approved-services baseline; deltas page the security on-call and are tracked through resolution.',
+     ['Approved-services baseline is maintained in CMDB.',
+      'Discovery scanner runs at least daily.',
+      'Unauthorized service detections route to on-call and are tracked.'],
+     'CMDB baseline export, scanner config, sample alert + ticket.')},
+  {ref:'SI-7(6)', title:'Cryptographic Protection',
+   stmt:'<p>Implement cryptographic mechanisms to detect unauthorized changes to software, firmware, and information.</p>',
+   impl: _ilImpl(
+     'Software and firmware artifacts are signed at build; runtime hosts verify signatures before execution; integrity-monitoring agents check for unauthorized changes to deployed binaries.',
+     ['Build pipeline produces signed artifacts only.',
+      'Runtime verifies signatures before exec.',
+      'FIM agents alert on unauthorized changes to deployed paths.'],
+     'Build pipeline policy, runtime exec policy, FIM alert config.')},
+  {ref:'SI-7(15)', title:'Code Authentication',
+   stmt:'<p>Implement cryptographic mechanisms to authenticate defined software or firmware components prior to installation.</p>',
+   impl: _ilImpl(
+     'Pre-install validation requires that software and firmware artifacts present a valid signature from an approved publisher; unsigned or invalid artifacts are blocked by policy.',
+     ['Allow-list of approved publishers is documented.',
+      'Install pipeline enforces signature validation.',
+      'Validation failures are logged and reviewed.'],
+     'Publisher allow-list, install pipeline policy, failure log review.')},
+
+  // ---------- SR family ----------
+  {ref:'SR-3(3)', title:'Diverse Supply Base',
+   stmt:'<p>Employ a diverse set of sources to reduce supply-chain risk for defined system components and information system services.</p>',
+   impl: _ilImpl(
+     'For critical components and services, supply-chain risk is reduced by maintaining qualified alternates; sole-source dependencies are documented as risks with compensating controls.',
+     ['Critical-component register identifies primary and alternate suppliers.',
+      'Sole-source items have a documented risk acceptance.',
+      'Supplier-mix is reviewed annually.'],
+     'Component register, risk acceptance log, annual review minutes.')},
+  {ref:'SR-5(2)', title:'Assessments Prior to Selection, Acceptance, Modification, or Update',
+   stmt:'<p>Assess the system, system component, or system service prior to selection, acceptance, modification, or update.</p>',
+   impl: _ilImpl(
+     'New components, new versions of components, and modifications go through a security assessment before adoption; assessment scope and depth scale with the component\'s blast radius.',
+     ['Pre-adoption assessment is required for new dependencies.',
+      'Major version upgrades trigger a re-assessment.',
+      'Findings gate adoption.'],
+     'Assessment template, sample reports, gating evidence.')},
+  {ref:'SR-6(1)', title:'Testing and Analysis',
+   stmt:'<p>Test or analyze defined supply-chain elements to verify compliance with security, supply chain, and quality requirements.</p>',
+   impl: _ilImpl(
+     'Critical supply-chain elements (dependencies, build images, third-party services) are tested via SCA, container scanning, and periodic out-of-band verification of supplier security posture.',
+     ['SCA runs on every build.',
+      'Container images are scanned and signed before promotion.',
+      'Supplier posture re-verification is scheduled annually.'],
+     'SCA tool report, image signing audit, supplier verification log.')},
+];
+{
+  const existing = new Set(CONTROLS.map(c=>c.ref));
+  IL_STUBS.forEach(s=>{
+    if(existing.has(s.ref)) return;
+    const fam = s.ref.split(/[-(]/)[0];
+    CONTROLS.push({
+      ref: s.ref,
+      title: s.title,
+      family: fam,
+      family_title: FAM_TITLE[fam] || fam,
+      is_enhancement: s.ref.includes('('),
+      baselines: [],          // not in any FedRAMP baseline; IL membership added below
+      stmt: s.stmt || `<p class="impl-warn">DoD IL overlay control — refer to NIST SP 800-53 Rev5 for the authoritative statement.</p>`,
+      disc: '',
+      impl: s.impl || `<p class="impl-warn">No starter implementation language available — validate with DCSA.</p>`,
+      stub: true,
+    });
+  });
+}
+
+/* il_levels[ref] -> Set of IL ids that include this ref. Built from the
+   FedRAMP base inheritance + the curated overlay additions. */
+const _IL_MEMBERS = {IL2:new Set(), IL4:new Set(), IL5:new Set(), IL6:new Set()};
+const _IL_OVERLAY_REFS = {IL2:new Set(), IL4:new Set(), IL5:new Set(), IL6:new Set()};
+
+CONTROLS.forEach(c=>{
+  for(const id of ['IL2','IL4','IL5','IL6']){
+    const ov = IL_OVERLAYS[id];
+    if(c.baselines.includes(ov.base)) _IL_MEMBERS[id].add(c.ref);
+  }
+});
+['IL2','IL4','IL5','IL6'].forEach(id=>{
+  IL_OVERLAYS[id].additions.forEach(ref=>{
+    _IL_MEMBERS[id].add(ref);
+    _IL_OVERLAY_REFS[id].add(ref);
+  });
+});
+
+// Tag each control with its IL memberships and any "this is an overlay
+// addition for IL X" flag. Done in-place so existing code paths keep working.
+CONTROLS.forEach(c=>{
+  c.il_levels = ['IL2','IL4','IL5','IL6'].filter(id=>_IL_MEMBERS[id].has(c.ref));
+  c.il_overlay_for = ['IL2','IL4','IL5','IL6'].filter(id=>_IL_OVERLAY_REFS[id].has(c.ref));
+  // Make IL membership work with the existing inFw() helper without a code change.
+  c.il_levels.forEach(id=>{ if(!c.baselines.includes(id)) c.baselines.push(id); });
+});
+
 const count = id => id==='NONE'?0:CONTROLS.filter(c=>c.baselines.includes(id)).length;
 const inFw = (c,id) => id!=='NONE' && c.baselines.includes(id);
+const isAdvisory = id => !!(FRAMEWORKS.find(f=>f.id===id)||{}).advisory;
+const advisoryCite = id => (FRAMEWORKS.find(f=>f.id===id)||{}).cite || '';
 let from='MODERATE', to='HIGH', view='GAP', q='', famFilter='';
 const expanded = new Set();
 
@@ -164,6 +652,15 @@ const fLabel=id=>FRAMEWORKS.find(f=>f.id===id).label.replace('FedRAMP Rev5 ','')
 function render(){
   const b=compute();
   const target=count(to),covered=b.SHARED.length,gap=b.GAP.length,pct=target?Math.round(covered/target*100):0;
+  // Advisory banner for DoD IL baselines (shown when either side is an IL).
+  const ban=document.getElementById('advisoryBanner');
+  const advFrom=isAdvisory(from), advTo=isAdvisory(to);
+  if(advFrom||advTo){
+    const ids=[from,to].filter(isAdvisory);
+    const cites=ids.map(id=>{const ov=IL_OVERLAYS[id];return `<b>${id}</b> — ${advisoryCite(id)}${ov?` · base: FedRAMP ${ov.base.toLowerCase()[0].toUpperCase()+ov.base.slice(1).toLowerCase()}`:''}`;}).join(' &nbsp;·&nbsp; ');
+    ban.style.display='block';
+    ban.innerHTML=`<b>Advisory data:</b> DoD Impact Level baselines are hand-curated from public DoD references — not OSCAL-authoritative like FedRAMP. ${cites}. Validate with a DCSA assessor before using in an authorization package.`;
+  } else { ban.style.display='none'; ban.innerHTML=''; }
   const v=document.getElementById('verdict');
   if(to==='NONE')v.innerHTML='Pick a <b>target</b> baseline to see the gap.';
   else if(gap===0&&b.BEYOND.length>0)v.innerHTML=`<b>${fLabel(from)}</b> already covers all of <b>${fLabel(to)}</b>.<br>${b.BEYOND.length} controls sit beyond the target.`;
@@ -200,18 +697,24 @@ function renderRows(b){
   document.getElementById('countLine').textContent=`${rows.length} control${rows.length===1?'':'s'} shown \u00b7 click a row to read the control + starter response`;
   const tb=document.getElementById('rows');
   if(!rows.length){tb.innerHTML=`<tr><td colspan="5"><div class="empty">Nothing here for this selection.</div></td></tr>`;return;}
+  const blOrder=['HIGH','MODERATE','LOW','IL2','IL4','IL5','IL6'];
   tb.innerHTML=rows.map(c=>{
     const open=expanded.has(c.ref);
-    const bls=c.baselines.slice().sort((x,y)=>['HIGH','MODERATE','LOW'].indexOf(x)-['HIGH','MODERATE','LOW'].indexOf(y)).map(x=>`<span class="bl ${x}">${x==='MODERATE'?'MOD':x}</span>`).join('');
+    const bls=c.baselines.slice().sort((x,y)=>blOrder.indexOf(x)-blOrder.indexOf(y)).map(x=>`<span class="bl ${x}">${x==='MODERATE'?'MOD':x}</span>`).join('');
+    const isOverlay=(c.il_overlay_for||[]).includes(to);
+    const advTag=isOverlay?`<span class="advisory" title="${to} overlay addition (advisory) — ${advisoryCite(to)}">${to} overlay</span>`:'';
     const main=`<tr class="rowmain ${open?'open':''}" data-ref="${c.ref}" onclick="toggleRow(this)">
       <td class="ref"><span class="chev">&#9656;</span>${c.ref}${c.is_enhancement?'<span class="enh">ENH</span>':''}</td>
-      <td class="ttl">${c.title}</td><td class="famtag">${c.family}</td>
+      <td class="ttl">${c.title}${advTag}</td><td class="famtag">${c.family}</td>
       <td><span class="rowtag ${view}">${view}</span></td>
       <td><div class="bls">${bls}</div></td></tr>`;
+    const ilTags=(c.il_overlay_for||[]);
+    const ilNote=ilTags.length?`<div class="advisory-banner" style="margin:6px 0 14px"><b>Advisory:</b> Added by DoD overlay${ilTags.length>1?'s':''}: ${ilTags.map(id=>`<b>${id}</b> (${advisoryCite(id)})`).join(' \u00b7 ')}. Hand-curated from public DoD references; not OSCAL-authoritative. Validate with a DCSA assessor.</div>`:'';
     const detail=`<tr class="detail ${open?'':'hidden'}" data-for="${c.ref}"><td colspan="5"><div class="read">
+      ${ilNote}
       <h4>Control statement \u2014 ${c.ref} ${c.title}</h4>${c.stmt||'<p>(unavailable)</p>'}
       ${c.disc?`<h4>Discussion</h4><p class="disc">${c.disc}</p>`:''}
-      <h4>Example implementation language</h4><div class="impl-box" id="impl-${cssid(c.ref)}">${c.impl||''}</div>
+      <h4>Example implementation language</h4><div class="impl-box" id="impl-${cssid(c.ref)}">${c.impl||'<p class="impl-warn">No starter language available for this control yet \u2014 typical for IL overlay additions. Reach out to engineering / 3PAO to draft.</p>'}</div>
       <button class="copybtn" onclick="copyImpl('${cssid(c.ref)}',event)">Copy starter text</button>
       <p class="src">Source: NIST SP 800-53 Rev5 \u00b7 ${c.family} ${c.family_title}. Implementation language is a draft to tailor and validate \u2014 not an authoritative response.</p>
     </div></td></tr>`;
@@ -330,12 +833,15 @@ function reportHeader(d){
   </div>`;
 }
 
-function reportFooter(){
+function reportFooter(d){
+  const ilCites = [];
+  if(d){ ['from','to'].forEach(k=>{ const id=d[k]; if(isAdvisory(id)) ilCites.push(`<b>${id}</b> — ${advisoryCite(id)}`); }); }
+  const ilNote = ilCites.length ? `<br><br><b>Advisory data note:</b> DoD Impact Level baselines (${ilCites.join(' · ')}) are hand-curated from public DoD references. Not OSCAL-authoritative like FedRAMP. Validate with a DCSA assessor before using in an authorization package.` : '';
   return `<div class="footer">
     Authoritative sources: <b>FedRAMP Rev5 baselines</b> (GSA fedramp-automation, OSCAL profiles)
     and <b>NIST SP 800-53 Rev5</b> control catalog (usnistgov/oscal-content). Gaps are exact set
     differences over baseline membership; not fuzzy crosswalks. Implementation guidance is starter
-    text only — tailor and validate with your 3PAO before incorporating into the SSP.<br><br>
+    text only — tailor and validate with your 3PAO before incorporating into the SSP.${ilNote}<br><br>
     Cribl Lighthouse · ${new Date().getFullYear()} · Internal use
   </div>`;
 }
@@ -374,7 +880,7 @@ function execBriefHTML(d){
         <li>Stand up a 6-week cadence: design → implement → assess → operate. Track each control through the Lighthouse Action Board.</li>
         <li>Plan a 3PAO readiness check before the formal assessment to surface evidence gaps early.</li>
       </ul>`:''}
-      ${reportFooter()}
+      ${reportFooter(d)}
     </div></body></html>`;
 }
 
@@ -403,7 +909,7 @@ function opsPlanHTML(d){
       </div>
       <h2>Family-by-family gap</h2>
       ${famSections}
-      ${reportFooter()}
+      ${reportFooter(d)}
     </div></body></html>`;
 }
 
@@ -462,6 +968,13 @@ function reportMarkdown(d){
   }
   lines.push(`---`);
   lines.push(`Source: FedRAMP Rev5 OSCAL profiles + NIST SP 800-53 Rev5. Gaps are exact set differences. Validate with your 3PAO before incorporating into an SSP.`);
+  const ilCites=[d.from,d.to].filter(isAdvisory);
+  if(ilCites.length){
+    lines.push(``);
+    lines.push(`**Advisory data note:** DoD Impact Level baselines in this report are hand-curated from public DoD references (not OSCAL-authoritative):`);
+    ilCites.forEach(id=>lines.push(`- **${id}** — ${advisoryCite(id)}`));
+    lines.push(`Validate with a DCSA assessor before using in an authorization package.`);
+  }
   return lines.join('\n');
 }
 
