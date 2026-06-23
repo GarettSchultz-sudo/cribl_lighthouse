@@ -438,8 +438,17 @@
   <!-- ============ FEED VIEW ============ -->
   <section id="view-posture">
     <div class="pos-head">
-      <div><h2 style="font-size:17px;margin-bottom:2px">Compliance posture</h2>
-        <p class="sub" id="posSys">Cribl LogStream Cloud — Gov · FedRAMP High baseline</p></div>
+      <div>
+        <h2 style="font-size:17px;margin-bottom:2px">Compliance posture</h2>
+        <p class="sub" id="posSys">Cribl LogStream Cloud — Gov · <span id="posBaselineLabel">FedRAMP High</span> baseline</p>
+        <div class="pos-baseline" style="display:flex;gap:6px;align-items:center;margin-top:10px">
+          <span style="font-family:var(--mono);font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-right:4px">Baseline</span>
+          <button class="chip" data-pbl="LOW" onclick="setPostureBaseline('LOW')">Low</button>
+          <button class="chip" data-pbl="MODERATE" onclick="setPostureBaseline('MODERATE')">Moderate</button>
+          <button class="chip on" data-pbl="HIGH" onclick="setPostureBaseline('HIGH')">High</button>
+          <span id="posBaselineCount" style="font-family:var(--mono);font-size:10.5px;color:var(--muted-2);margin-left:6px"></span>
+        </div>
+      </div>
       <div class="pos-cov"><div class="ring" id="posRing"><span id="posCovPct">0%</span></div><div class="pos-cov-l">controls<br>implemented</div></div>
     </div>
     <div class="br-stats" id="posStats" style="margin:16px 0 20px"></div>
@@ -1005,29 +1014,50 @@ let POAMS=[
  {id:5,controlRef:'AC-6',title:'Close least-privilege gaps on prod roles',severity:'moderate',status:'open',owner:'M. Osei',due:'2026-06-30',changeId:''},
 ];
 function stOf(ref){return (STATUS[ref]||{}).status||'planned';}
-function postureCounts(){const by={};CONTROLS.forEach(c=>{const s=stOf(c.ref);by[s]=(by[s]||0)+1;});return by;}
-function changedControlsSet(){const set=new Set();for(const cid in CHANGE_CONTROLS){const m=CHANGE_CONTROLS[cid];(m.refs||[]).forEach(r=>set.add(r));(m.families||[]).forEach(fam=>CONTROLS.filter(c=>c.family===fam).forEach(c=>set.add(c.ref)));}return set;}
+let postureBaseline='HIGH';
+const _BL_LABEL={LOW:'FedRAMP Low',MODERATE:'FedRAMP Moderate',HIGH:'FedRAMP High'};
+function setPostureBaseline(bl){
+  if(!_BL_LABEL[bl]) return;
+  postureBaseline=bl;
+  document.querySelectorAll('.chip[data-pbl]').forEach(c=>c.classList.toggle('on',c.dataset.pbl===bl));
+  const lbl=document.getElementById('posBaselineLabel'); if(lbl) lbl.textContent=_BL_LABEL[bl];
+  renderPosture();
+}
+function _postureControls(){return CONTROLS.filter(c=>(c.baselines||[]).includes(postureBaseline));}
+function postureCounts(){const by={};_postureControls().forEach(c=>{const s=stOf(c.ref);by[s]=(by[s]||0)+1;});return by;}
+function changedControlsSet(){
+  const set=new Set();
+  const inScope=new Set(_postureControls().map(c=>c.ref));
+  for(const cid in CHANGE_CONTROLS){const m=CHANGE_CONTROLS[cid];
+    (m.refs||[]).forEach(r=>{if(inScope.has(r))set.add(r);});
+    (m.families||[]).forEach(fam=>_postureControls().filter(c=>c.family===fam).forEach(c=>set.add(c.ref)));
+  }
+  return set;
+}
 function renderPosture(){
   if(!Object.keys(STATUS).length) seedStatus();
-  const by=postureCounts(), total=CONTROLS.length, na=by.not_applicable||0, applicable=total-na;
+  const scope=_postureControls();
+  const by=postureCounts(), total=scope.length, na=by.not_applicable||0, applicable=total-na;
   const cov=applicable?Math.round(100*(by.implemented||0)/applicable):0;
   const ring=document.getElementById('posRing'); ring.style.setProperty('--cov',cov+'%'); document.getElementById('posCovPct').textContent=cov+'%';
+  const cnt=document.getElementById('posBaselineCount'); if(cnt) cnt.textContent=total+' controls in scope';
   const card=(n,l,c)=>'<div class="br-stat"><div class="n" style="color:'+c+'">'+n+'</div><div class="l">'+l+'</div></div>';
   document.getElementById('posStats').innerHTML=
     card(by.implemented||0,'Implemented','var(--teal)')+card(by.partial||0,'Partial','var(--blue)')+
     card(by.planned||0,'Planned / gap','var(--signal)')+card(na,'Not applicable','var(--muted-2)');
   // by family
-  const fam={};CONTROLS.forEach(c=>{const s=stOf(c.ref);const f=fam[c.family]=fam[c.family]||{family:c.family,title:c.family_title||FAM_TITLE[c.family],counts:{},n:0};f.counts[s]=(f.counts[s]||0)+1;f.n++;});
+  const fam={};scope.forEach(c=>{const s=stOf(c.ref);const f=fam[c.family]=fam[c.family]||{family:c.family,title:c.family_title||FAM_TITLE[c.family],counts:{},n:0};f.counts[s]=(f.counts[s]||0)+1;f.n++;});
   document.getElementById('posFamilies').innerHTML=Object.keys(fam).sort().map(k=>{const f=fam[k];
     const segs=STATUS_ORDER.map(s=>{const n=f.counts[s]||0;return n?'<div class="fbar-seg '+STATUS_META[s].seg+'" style="width:'+(100*n/f.n)+'%" title="'+STATUS_META[s].label+': '+n+'"></div>':'';}).join('');
     return '<div class="fbar" onclick="gotoControls(\''+f.family+'\')"><span class="fbar-fam">'+f.family+'</span><div class="fbar-track">'+segs+'</div><span class="fbar-n">'+f.n+'</span></div>';}).join('');
-  // overdue
+  // overdue (filter by current baseline scope)
   const today=new Date().toISOString().slice(0,10);
-  const od=CONTROLS.map(c=>({ref:c.ref,...STATUS[c.ref]})).filter(x=>x.status!=='not_applicable'&&x.nextReview&&x.nextReview<today).sort((a,b)=>a.nextReview<b.nextReview?-1:1).slice(0,8);
-  document.getElementById('posOverdue').innerHTML=od.length?od.map(x=>{const days=Math.round((Date.now()-new Date(x.nextReview))/864e5);return '<div class="att-row"><span class="aref" onclick="openControl(\''+x.ref+'\')">'+x.ref+'</span><span class="stp '+STATUS_META[x.status].cls+'">'+STATUS_META[x.status].label+'</span><span class="ameta">'+x.owner+' · '+days+'d overdue</span></div>';}).join(''):'<p class="sub" style="padding:8px 0">No overdue reviews.</p>';
-  // poams
-  const op=POAMS.filter(p=>p.status==='open'||p.status==='in_progress').sort((a,b)=>({high:0,moderate:1,low:2}[a.severity]-{high:0,moderate:1,low:2}[b.severity]));
-  document.getElementById('posPoams').innerHTML=op.length?op.map(p=>'<div class="att-row"><span class="sev sev-'+p.severity+'"></span><div><div onclick="openControl(\''+p.controlRef+'\')" style="cursor:pointer">'+p.title+'</div><div class="ameta" style="margin:2px 0 0">'+p.controlRef+' · '+p.owner+(p.due?' · due '+p.due:'')+(p.status==='in_progress'?' · in progress':'')+'</div></div><button class="poam-close" onclick="closePoam('+p.id+')">Close</button></div>').join(''):'<p class="sub" style="padding:8px 0">No open POA&Ms.</p>';
+  const od=scope.map(c=>({ref:c.ref,...STATUS[c.ref]})).filter(x=>x.status!=='not_applicable'&&x.nextReview&&x.nextReview<today).sort((a,b)=>a.nextReview<b.nextReview?-1:1).slice(0,8);
+  document.getElementById('posOverdue').innerHTML=od.length?od.map(x=>{const days=Math.round((Date.now()-new Date(x.nextReview))/864e5);return '<div class="att-row"><span class="aref" onclick="openControl(\''+x.ref+'\')">'+x.ref+'</span><span class="stp '+STATUS_META[x.status].cls+'">'+STATUS_META[x.status].label+'</span><span class="ameta">'+x.owner+' · '+days+'d overdue</span></div>';}).join(''):'<p class="sub" style="padding:8px 0">No overdue reviews in '+_BL_LABEL[postureBaseline]+'.</p>';
+  // poams (only those tied to in-scope controls)
+  const inScopeRefs=new Set(scope.map(c=>c.ref));
+  const op=POAMS.filter(p=>(p.status==='open'||p.status==='in_progress')&&inScopeRefs.has(p.controlRef)).sort((a,b)=>({high:0,moderate:1,low:2}[a.severity]-{high:0,moderate:1,low:2}[b.severity]));
+  document.getElementById('posPoams').innerHTML=op.length?op.map(p=>'<div class="att-row"><span class="sev sev-'+p.severity+'"></span><div><div onclick="openControl(\''+p.controlRef+'\')" style="cursor:pointer">'+p.title+'</div><div class="ameta" style="margin:2px 0 0">'+p.controlRef+' · '+p.owner+(p.due?' · due '+p.due:'')+(p.status==='in_progress'?' · in progress':'')+'</div></div><button class="poam-close" onclick="closePoam('+p.id+')">Close</button></div>').join(''):'<p class="sub" style="padding:8px 0">No open POA&Ms in '+_BL_LABEL[postureBaseline]+'.</p>';
   // revalidate
   const changed=[...changedControlsSet()].filter(r=>['implemented','partial'].includes(stOf(r))).slice(0,14);
   document.getElementById('posRevalidate').innerHTML=changed.length?changed.map(r=>'<span class="br-ctrl" onclick="openControl(\''+r+'\')">'+r+' <span class="stp '+STATUS_META[stOf(r)].cls+'" style="margin-left:4px">'+STATUS_META[stOf(r)].label+'</span></span>').join(''):'<span style="color:var(--muted-2);font-family:var(--mono);font-size:12px">Nothing flagged.</span>';
