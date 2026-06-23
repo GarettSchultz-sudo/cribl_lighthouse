@@ -440,23 +440,23 @@
     <div class="pos-head">
       <div>
         <h2 style="font-size:17px;margin-bottom:2px">Compliance posture</h2>
-        <p class="sub" id="posSys">Cribl LogStream Cloud — Gov · <span id="posBaselineLabel">FedRAMP High</span> baseline</p>
+        <p class="sub" id="posSys">Cribl LogStream Cloud — Gov · Current ATO: <b style="color:var(--teal)">FedRAMP Moderate</b> · Readiness toward: <b id="posBaselineLabel">FedRAMP High</b></p>
         <div class="pos-baseline" style="display:flex;gap:6px;align-items:center;margin-top:10px">
-          <span style="font-family:var(--mono);font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-right:4px">Baseline</span>
+          <span style="font-family:var(--mono);font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-right:4px">Readiness target</span>
           <button class="chip" data-pbl="LOW" onclick="setPostureBaseline('LOW')">Low</button>
-          <button class="chip" data-pbl="MODERATE" onclick="setPostureBaseline('MODERATE')">Moderate</button>
+          <button class="chip" data-pbl="MODERATE" onclick="setPostureBaseline('MODERATE')">Moderate <span class="ct" style="color:var(--teal)">ATO</span></button>
           <button class="chip on" data-pbl="HIGH" onclick="setPostureBaseline('HIGH')">High</button>
           <span id="posBaselineCount" style="font-family:var(--mono);font-size:10.5px;color:var(--muted-2);margin-left:6px"></span>
         </div>
       </div>
-      <div class="pos-cov"><div class="ring" id="posRing"><span id="posCovPct">0%</span></div><div class="pos-cov-l">controls<br>implemented</div></div>
+      <div class="pos-cov"><div class="ring" id="posRing"><span id="posCovPct">0%</span></div><div class="pos-cov-l">readiness<br>toward target</div></div>
     </div>
     <div class="br-stats" id="posStats" style="margin:16px 0 20px"></div>
     <div class="grid2">
       <div class="panel"><h2>Coverage by control family</h2><p class="sub">Click a family to open it filtered in Controls.</p><div id="posFamilies"></div></div>
       <div>
-        <div class="panel" style="margin-bottom:14px"><h2>Reviews overdue</h2><p class="sub">Implemented controls past their review date.</p><div id="posOverdue"></div></div>
-        <div class="panel"><h2>Open POA&amp;Ms</h2><p class="sub">Uplift work items, highest severity first.</p><div id="posPoams"></div></div>
+        <div class="panel" style="margin-bottom:14px"><h2 id="posGapHead">Readiness gap</h2><p class="sub" id="posGapSub">Controls in the target baseline not yet implemented.</p><div id="posOverdue"></div></div>
+        <div class="panel"><h2>Open POA&amp;Ms</h2><p class="sub">Uplift work items tied to active intake changes.</p><div id="posPoams"></div></div>
       </div>
     </div>
     <div class="panel" style="margin-top:14px"><h2>Recently changed — revalidate</h2>
@@ -990,20 +990,40 @@ async function runFlow(){
 
 
 
-/* ===================== POSTURE / CONTROL STATUS (keystone) ===================== */
-const SYSTEM={id:'logstream-cloud-gov',name:'Cribl LogStream Cloud — Gov',baseline:'HIGH'};
+/* ===================== POSTURE / CONTROL STATUS (keystone) =====================
+   Cribl LogStream Cloud — Gov holds a FedRAMP Moderate ATO today. Posture
+   reflects that: every Moderate control = implemented. Controls that are in
+   higher baselines (High) but NOT in Moderate are 'planned' — they're the
+   readiness gap when the user selects High as the target. */
+const SYSTEM={id:'logstream-cloud-gov',name:'Cribl LogStream Cloud — Gov',currentAto:'MODERATE'};
 const STATUS_META={implemented:{label:'Implemented',cls:'st-impl',seg:'seg-impl'},partial:{label:'Partial',cls:'st-part',seg:'seg-part'},planned:{label:'Planned',cls:'st-plan',seg:'seg-plan'},not_applicable:{label:'N/A',cls:'st-na',seg:'seg-na'},inherited:{label:'Inherited',cls:'st-inh',seg:'seg-inh'}};
 const STATUS_ORDER=['implemented','partial','planned','inherited','not_applicable'];
-const OWNERS=['A. Rivera','J. Kim','S. Vance','M. Osei','L. Chen','P. Nair'];
-const STATUS_WEIGHTED=['implemented','implemented','implemented','implemented','partial','partial','planned','not_applicable'];
+// Family-aligned ownership for the readiness-gap demo. Replace with real owners.
+const FAMILY_OWNERS={
+  AC:'A. Rivera', AT:'L. Chen', AU:'J. Kim',  CA:'A. Rivera', CM:'M. Osei',
+  CP:'P. Nair',   IA:'A. Rivera', IR:'S. Vance', MA:'M. Osei',  MP:'P. Nair',
+  PE:'P. Nair',   PL:'L. Chen', PS:'L. Chen', RA:'S. Vance', SA:'M. Osei',
+  SC:'M. Osei',   SI:'S. Vance', SR:'M. Osei',
+};
 function hashRef(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h;}
 let STATUS={};
 function seedStatus(){
-  (typeof CONTROLS!=='undefined'?CONTROLS:CONTROL_DATA).forEach(c=>{ if(STATUS[c.ref])return;
-    const h=hashRef(c.ref), st=STATUS_WEIGHTED[h%STATUS_WEIGHTED.length], lastDays=(h%200)+20;
-    const last=new Date(Date.now()-lastDays*864e5), next=new Date(last.getTime()+180*864e5);
-    STATUS[c.ref]={status:st,owner:OWNERS[h%OWNERS.length],lastReviewed:last.toISOString().slice(0,10),
-      nextReview:next.toISOString().slice(0,10),evidence:(st==='implemented'||st==='partial')?'wiki/controls/'+c.ref.toLowerCase().replace(/[()]/g,''):'',notes:''};
+  // Truth: we have a Moderate ATO. Every Moderate-baseline control is implemented.
+  // High-only controls are 'planned' — they're the gap to close for a High ATO.
+  (typeof CONTROLS!=='undefined'?CONTROLS:CONTROL_DATA).forEach(c=>{
+    if(STATUS[c.ref]) return;
+    const inModerate = (c.baselines||[]).includes('MODERATE');
+    const inHigh     = (c.baselines||[]).includes('HIGH');
+    const status = inModerate ? 'implemented' : (inHigh ? 'planned' : 'not_applicable');
+    const owner = FAMILY_OWNERS[c.family] || 'TBD';
+    STATUS[c.ref] = {
+      status,
+      owner,
+      lastReviewed: '',     // no fake review history
+      nextReview: '',
+      evidence: status==='implemented' ? 'wiki/controls/'+c.ref.toLowerCase().replace(/[()]/g,'') : '',
+      notes: status==='planned' ? 'High-baseline gap — not in current Moderate ATO' : '',
+    };
   });
 }
 let POAMS=[
@@ -1038,26 +1058,53 @@ function renderPosture(){
   if(!Object.keys(STATUS).length) seedStatus();
   const scope=_postureControls();
   const by=postureCounts(), total=scope.length, na=by.not_applicable||0, applicable=total-na;
+  // "Readiness toward target" = % of in-scope controls already implemented in the current ATO.
   const cov=applicable?Math.round(100*(by.implemented||0)/applicable):0;
   const ring=document.getElementById('posRing'); ring.style.setProperty('--cov',cov+'%'); document.getElementById('posCovPct').textContent=cov+'%';
-  const cnt=document.getElementById('posBaselineCount'); if(cnt) cnt.textContent=total+' controls in scope';
+  const cnt=document.getElementById('posBaselineCount');
+  if(cnt){
+    const gapN=(by.planned||0);
+    cnt.textContent = postureBaseline===SYSTEM.currentAto
+      ? total+' controls in current ATO scope'
+      : total+' controls in target · '+gapN+' to implement';
+  }
   const card=(n,l,c)=>'<div class="br-stat"><div class="n" style="color:'+c+'">'+n+'</div><div class="l">'+l+'</div></div>';
   document.getElementById('posStats').innerHTML=
     card(by.implemented||0,'Implemented','var(--teal)')+card(by.partial||0,'Partial','var(--blue)')+
-    card(by.planned||0,'Planned / gap','var(--signal)')+card(na,'Not applicable','var(--muted-2)');
+    card(by.planned||0,'Gap to close','var(--signal)')+card(na,'Not applicable','var(--muted-2)');
   // by family
   const fam={};scope.forEach(c=>{const s=stOf(c.ref);const f=fam[c.family]=fam[c.family]||{family:c.family,title:c.family_title||FAM_TITLE[c.family],counts:{},n:0};f.counts[s]=(f.counts[s]||0)+1;f.n++;});
   document.getElementById('posFamilies').innerHTML=Object.keys(fam).sort().map(k=>{const f=fam[k];
     const segs=STATUS_ORDER.map(s=>{const n=f.counts[s]||0;return n?'<div class="fbar-seg '+STATUS_META[s].seg+'" style="width:'+(100*n/f.n)+'%" title="'+STATUS_META[s].label+': '+n+'"></div>':'';}).join('');
     return '<div class="fbar" onclick="gotoControls(\''+f.family+'\')"><span class="fbar-fam">'+f.family+'</span><div class="fbar-track">'+segs+'</div><span class="fbar-n">'+f.n+'</span></div>';}).join('');
-  // overdue (filter by current baseline scope)
-  const today=new Date().toISOString().slice(0,10);
-  const od=scope.map(c=>({ref:c.ref,...STATUS[c.ref]})).filter(x=>x.status!=='not_applicable'&&x.nextReview&&x.nextReview<today).sort((a,b)=>a.nextReview<b.nextReview?-1:1).slice(0,8);
-  document.getElementById('posOverdue').innerHTML=od.length?od.map(x=>{const days=Math.round((Date.now()-new Date(x.nextReview))/864e5);return '<div class="att-row"><span class="aref" onclick="openControl(\''+x.ref+'\')">'+x.ref+'</span><span class="stp '+STATUS_META[x.status].cls+'">'+STATUS_META[x.status].label+'</span><span class="ameta">'+x.owner+' · '+days+'d overdue</span></div>';}).join(''):'<p class="sub" style="padding:8px 0">No overdue reviews in '+_BL_LABEL[postureBaseline]+'.</p>';
-  // poams (only those tied to in-scope controls)
+  // Readiness gap — controls in the target baseline that aren't implemented today.
+  const gapHead=document.getElementById('posGapHead'), gapSub=document.getElementById('posGapSub');
+  if(postureBaseline===SYSTEM.currentAto){
+    if(gapHead) gapHead.textContent='Current ATO baseline';
+    if(gapSub)  gapSub.textContent='All '+total+' controls in this baseline are implemented under our existing FedRAMP authorization.';
+    document.getElementById('posOverdue').innerHTML='<p class="sub" style="padding:8px 0;color:var(--teal)">FedRAMP '+_BL_LABEL[postureBaseline].replace('FedRAMP ','')+' ATO active — no gap.</p>';
+  } else {
+    const planned = scope.filter(c=>stOf(c.ref)==='planned');
+    if(gapHead) gapHead.textContent='Readiness gap toward '+_BL_LABEL[postureBaseline];
+    if(gapSub)  gapSub.textContent=planned.length+' controls in the target baseline not yet implemented under our current ATO.';
+    if(planned.length){
+      // Group by family, sort by gap size desc.
+      const byFam={};
+      planned.forEach(c=>{(byFam[c.family]=byFam[c.family]||[]).push(c);});
+      const ordered=Object.keys(byFam).sort((a,b)=>byFam[b].length-byFam[a].length).slice(0,6);
+      document.getElementById('posOverdue').innerHTML=ordered.map(f=>{
+        const list=byFam[f].slice(0,4).map(c=>'<span class="aref" onclick="openControl(\''+c.ref+'\')" style="cursor:pointer">'+c.ref+'</span>').join(' · ');
+        const more=byFam[f].length>4?' · <span style="color:var(--muted-2)">+'+(byFam[f].length-4)+' more</span>':'';
+        return '<div class="att-row"><span style="font-family:var(--mono);font-size:11px;color:var(--ink);font-weight:600;min-width:36px">'+f+'</span><div style="flex:1;font-family:var(--mono);font-size:11px;color:var(--muted)">'+list+more+'</div><span class="ameta">'+byFam[f].length+'</span></div>';
+      }).join('');
+    } else {
+      document.getElementById('posOverdue').innerHTML='<p class="sub" style="padding:8px 0">No planned controls — current ATO already covers '+_BL_LABEL[postureBaseline]+'.</p>';
+    }
+  }
+  // POA&Ms — only items tied to in-scope controls AND to a real intake change.
   const inScopeRefs=new Set(scope.map(c=>c.ref));
-  const op=POAMS.filter(p=>(p.status==='open'||p.status==='in_progress')&&inScopeRefs.has(p.controlRef)).sort((a,b)=>({high:0,moderate:1,low:2}[a.severity]-{high:0,moderate:1,low:2}[b.severity]));
-  document.getElementById('posPoams').innerHTML=op.length?op.map(p=>'<div class="att-row"><span class="sev sev-'+p.severity+'"></span><div><div onclick="openControl(\''+p.controlRef+'\')" style="cursor:pointer">'+p.title+'</div><div class="ameta" style="margin:2px 0 0">'+p.controlRef+' · '+p.owner+(p.due?' · due '+p.due:'')+(p.status==='in_progress'?' · in progress':'')+'</div></div><button class="poam-close" onclick="closePoam('+p.id+')">Close</button></div>').join(''):'<p class="sub" style="padding:8px 0">No open POA&Ms in '+_BL_LABEL[postureBaseline]+'.</p>';
+  const op=POAMS.filter(p=>(p.status==='open'||p.status==='in_progress')&&inScopeRefs.has(p.controlRef)&&p.changeId).sort((a,b)=>({high:0,moderate:1,low:2}[a.severity]-{high:0,moderate:1,low:2}[b.severity]));
+  document.getElementById('posPoams').innerHTML=op.length?op.map(p=>'<div class="att-row"><span class="sev sev-'+p.severity+'"></span><div><div onclick="openControl(\''+p.controlRef+'\')" style="cursor:pointer">'+p.title+'</div><div class="ameta" style="margin:2px 0 0">'+p.controlRef+' · '+p.owner+(p.due?' · due '+p.due:'')+' · '+p.changeId+'</div></div><button class="poam-close" onclick="closePoam('+p.id+')">Close</button></div>').join(''):'<p class="sub" style="padding:8px 0">No open POA&Ms tied to in-scope intake changes.</p>';
   // revalidate
   const changed=[...changedControlsSet()].filter(r=>['implemented','partial'].includes(stOf(r))).slice(0,14);
   document.getElementById('posRevalidate').innerHTML=changed.length?changed.map(r=>'<span class="br-ctrl" onclick="openControl(\''+r+'\')">'+r+' <span class="stp '+STATUS_META[stOf(r)].cls+'" style="margin-left:4px">'+STATUS_META[stOf(r)].label+'</span></span>').join(''):'<span style="color:var(--muted-2);font-family:var(--mono);font-size:12px">Nothing flagged.</span>';
