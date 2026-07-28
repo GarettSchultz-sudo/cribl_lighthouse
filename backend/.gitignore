@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/*.db
+data/*.db-journal
+outbox/slack/*.json
+outbox/jira/*.json
+.env
+*.egg-info/
+build/
+dist/

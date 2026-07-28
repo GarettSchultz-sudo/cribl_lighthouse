@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Backend ephemeral data
+backend/data/
+backend/outbox/
+backend/.env

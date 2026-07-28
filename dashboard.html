@@ -406,6 +406,44 @@
   .st-save:hover{filter:brightness(1.15)}
   .crow-meta{display:flex;gap:7px;align-items:center;margin-top:5px}
   .crow-owner{font-family:var(--mono);font-size:10px;color:var(--muted-2)}
+  /* ---------- timeline ---------- */
+  .timeline{position:relative;padding:16px 0 8px;overflow-x:auto}
+  .tl-track{display:flex;align-items:stretch;gap:0;position:relative;min-width:max-content;padding:0 8px}
+  .tl-track::before{content:"";position:absolute;left:8px;right:8px;top:50%;height:2px;background:var(--line);z-index:0}
+  .tl-item{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;min-width:110px;flex:1;padding:0 4px}
+  .tl-dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--line);background:var(--panel);position:relative;z-index:2}
+  .tl-dot.past{background:var(--teal);border-color:var(--teal)}
+  .tl-dot.today{background:var(--signal);border-color:var(--signal);box-shadow:0 0 0 4px var(--signal-dim);animation:pulse 2.4s infinite}
+  .tl-dot.soon{background:var(--signal);border-color:var(--signal)}
+  .tl-dot.future{background:var(--panel-2);border-color:var(--muted-2)}
+  .tl-date{font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-top:8px;white-space:nowrap}
+  .tl-label{font-size:11px;font-weight:600;color:var(--ink);margin-bottom:8px;text-align:center;line-height:1.3;max-width:120px}
+  .tl-label.muted{color:var(--muted-2);font-weight:500}
+  .tl-tag{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:4px;margin-bottom:4px}
+  .tl-tag.today-tag{background:var(--signal-dim);color:var(--signal)}
+  .tl-tag.overdue-tag{background:var(--red-dim);color:var(--red)}
+  /* ---------- week summary ---------- */
+  .week-summary{display:flex;gap:14px;align-items:center;padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;flex-wrap:wrap}
+  .week-summary .ws-item{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .week-summary .ws-item .ws-n{font-size:18px;font-weight:800;color:var(--ink)}
+  .week-summary .ws-item.urgent .ws-n{color:var(--signal)}
+  .week-summary .ws-item.danger .ws-n{color:var(--red)}
+  /* ---------- risk badge ---------- */
+  .risk-badge{font-family:var(--mono);font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:5px;letter-spacing:.3px}
+  .risk-crit{background:var(--red-dim);color:var(--red)}
+  .risk-high{background:var(--signal-dim);color:var(--signal)}
+  .risk-med{background:var(--blue-dim);color:var(--blue)}
+  .risk-low{background:var(--panel-2);color:var(--muted)}
+  /* ---------- posture export ---------- */
+  .pos-export{display:flex;gap:8px;margin-left:auto}
+  .pos-export .btn{font-size:11px;padding:6px 10px}
+  /* ---------- gap link ---------- */
+  .gap-link{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--signal);text-decoration:none;padding:6px 12px;border:1px solid var(--signal-dim);border-radius:7px;transition:.15s;margin-top:10px}
+  .gap-link:hover{background:var(--signal-dim);border-color:var(--signal)}
+  /* ---------- poll button ---------- */
+  .poll-btn{font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--teal-dim);background:var(--teal-dim);color:var(--teal);padding:7px 13px;border-radius:7px;transition:.15s}
+  .poll-btn:hover{border-color:var(--teal);background:var(--teal);color:#0d1016}
+  .poll-btn:disabled{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -449,7 +487,13 @@
           <span id="posBaselineCount" style="font-family:var(--mono);font-size:10.5px;color:var(--muted-2);margin-left:6px"></span>
         </div>
       </div>
-      <div class="pos-cov"><div class="ring" id="posRing"><span id="posCovPct">0%</span></div><div class="pos-cov-l">readiness<br>toward target</div></div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="pos-export">
+          <button class="btn" onclick="exportPostureCSV()" title="Download posture status as CSV">↓ CSV</button>
+          <button class="btn" onclick="exportPosturePDF()" title="Open printable posture report">⎙ Report</button>
+        </div>
+        <div class="pos-cov"><div class="ring" id="posRing"><span id="posCovPct">0%</span></div><div class="pos-cov-l">readiness<br>toward target</div></div>
+      </div>
     </div>
     <div class="br-stats" id="posStats" style="margin:16px 0 20px"></div>
     <div class="grid2">
@@ -459,11 +503,17 @@
         <div class="panel"><h2>Open POA&amp;Ms</h2><p class="sub">Uplift work items tied to active intake changes.</p><div id="posPoams"></div></div>
       </div>
     </div>
+    <div class="panel" style="margin-top:14px"><h2>Critical dates</h2>
+      <p class="sub">Key milestones from intake items — next 90 days and beyond.</p>
+      <div class="timeline" id="posTimeline"></div>
+      <a class="gap-link" id="posGapLink" href="gap.html?from=MODERATE&to=HIGH" target="_blank">View full Moderate → High gap analysis (87 controls) →</a>
+    </div>
     <div class="panel" style="margin-top:14px"><h2>Recently changed — revalidate</h2>
       <p class="sub">Implemented/partial controls touched by tracked changes. Confirm they still hold.</p>
       <div id="posRevalidate" class="br-ctrls"></div></div>
   </section>
   <section id="view-feed" class="hidden">
+    <div class="week-summary" id="weekSummary"></div>
     <div class="stats" id="statStrip"></div>
     <div class="toolbar">
       <div class="search">
@@ -524,7 +574,8 @@
     <div class="grid2">
       <div class="panel">
         <h2>Connected feeds</h2>
-        <p class="sub">Live endpoints this prototype is modeled on (verified June 2026).</p>
+        <p class="sub">Live endpoints this prototype is modeled on (verified July 2026).</p>
+        <div style="margin:10px 0"><button class="poll-btn" id="pollNowBtn" onclick="pollNow()">⚡ Poll now</button> <span id="pollStatus" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:8px"></span></div>
         <div id="srcList"></div>
         <p class="note">FedRAMP RSS feeds send no CORS headers, so the browser can't read them directly.
         The backend polls them server-side and re-serves them at <code>/feeds</code> with CORS — set
@@ -612,69 +663,94 @@
    of whether it originated as a FedRAMP RFC, a public notice, or a
    Federal Register regulation. This is the schema your backend writes.
    ===================================================================== */
-const TODAY = new Date('2026-06-04');
+const TODAY = new Date('2026-07-28');
 
 const ITEMS = [
+  { id:'NTC-0016', kind:'NOTICE', title:'Outcome — FY26 Q4 FedRAMP Security Inbox Test',
+    summary:'652 CSOs (99%) passed Q4 inbox test; 10 failed and are in remediation pending revocation. First test after grace-period expiration (Jul 1). Named non-responsive providers include Accenture Federal Services, Forcepoint, Aruba Networks, CGI Federal. Corrective action plans due Aug 4; revocation for non-submitters Aug 5.',
+    published:'2026-07-22', deadline:'2026-08-04', state:'open',
+    impactAreas:['CSP Communications','Marketplace Listing'],
+    url:'https://www.fedramp.gov/notices/0016', needsAction:true },
+  { id:'NTC-0015', kind:'NOTICE', title:'Emergency Test — FY26 Q4 Security Inbox Test',
+    summary:'Quarterly test of CSP security inbox functionality. CSPs must confirm receipt, commitment to VDR/VER adoption by Dec 7 2026, awareness of CR26 deadlines. Also announces removal of 12-month pilot certification window for 20x participants.',
+    published:'2026-07-07', deadline:'2026-07-14', state:'closed',
+    impactAreas:['CSP Communications','ConMon Pipeline'],
+    url:'https://www.fedramp.gov/notices/0015', needsAction:false },
+  { id:'NTC-0014', kind:'NOTICE', title:'FedRAMP Response to CISA BOD 26-04 — Prioritizing Security Updates',
+    summary:'FedRAMP accelerates mandatory VDR/VER adoption by ~6 months in response to CISA BOD 26-04. Legacy monthly vulnerability scanning declared insufficient. Six FedRAMP rules map to four BOD risk factors (public exposure, KEV status, exploit automatability, technical impact). Certification revocation for non-compliance after grace period.',
+    published:'2026-06-16', deadline:'2026-12-07', state:'open',
+    impactAreas:['Vuln Management','ConMon Pipeline','Incident Response'],
+    url:'https://www.fedramp.gov/notices/0014', needsAction:true },
+  { id:'NTC-0013', kind:'NOTICE', title:'Initial Outcome — Rev5 Baseline RFCs (RFC-0026 through RFC-0030)',
+    summary:'Major Rev5 overhaul: (1) removing nearly all FedRAMP-assigned parameter values — CSPs must assign per NIST rules; (2) removing FedRAMP-specific control guidance — requirements move to CR26; (3) replacing SSP/SAR with Certification Package structure (Overview, Security Decision Record, Secure Configuration Guide) in machine-readable JSON. New Rev5 apps must comply Jan 1 2027; end of Rev5 new certs Jun 11 2027.',
+    published:'2026-06-16', deadline:'2027-01-01', state:'open',
+    impactAreas:['Control Baseline','SSP / MR Package','ConMon Pipeline','Authorization Boundary'],
+    url:'https://www.fedramp.gov/notices/0013', needsAction:true },
   { id:'NTC-0012', kind:'NOTICE', title:'Initial Outcome — RFC-0031 Updated Incident Communications Procedures',
     summary:'New incident-reporting framework effective Jul 4 2026 (mandatory: 20x now; Rev5 & pilot 20x by Jan 1 2027). Potential Adverse Impact becomes Potential Agency Impact (PAIN); report timeframes scale by Certification Class (Class D: 15-min initial); providers no longer report to CISA directly; automated incident communication strongly encouraged.',
-    published:'2026-06-03', deadline:'2026-07-04', state:'open',
+    published:'2026-06-03', deadline:'2026-07-04', state:'closed',
     impactAreas:['Incident Response','ConMon Pipeline','SSP / MR Package'],
-    url:'https://www.fedramp.gov/notices/0012', needsAction:true },
+    url:'https://www.fedramp.gov/notices/0012', needsAction:false },
+  { id:'BOD-26-04', kind:'REG', title:'CISA BOD 26-04 — Prioritizing Security Updates Based on Risk',
+    summary:'Mandates agencies evaluate and remediate vulnerabilities based on four risk factors: public/internet exposure, KEV catalog status, exploit automatability, technical impact. Replaces previous flat-timeline approach. FedRAMP has aligned VDR/VER rules to this directive via NTC-0014.',
+    published:'2026-06-10', deadline:'2026-08-07', state:'open',
+    impactAreas:['Vuln Management','ConMon Pipeline'],
+    url:'https://www.cisa.gov/news-events/directives/bod-26-04', needsAction:true },
+  { id:'CR26', kind:'REG', title:'Consolidated Rules for 2026 (CR26) — Effective',
+    summary:'Single consolidated ruleset replacing prior fragmented guidance; valid through Dec 31 2028. Finalizes outcomes of RFCs 0019–0024. FedRAMP Ready went legacy Jul 28; Class A pipeline opens Aug 3; Class B/C opens Aug 31. Mandatory adoption Jan 1 2027.',
+    published:'2026-06-24', deadline:'2027-01-01', state:'open',
+    impactAreas:['Control Baseline','SSP / MR Package','ConMon Pipeline','Marketplace Listing','Authorization Boundary'],
+    url:'https://preview.fedramp.gov/2026', needsAction:true },
   { id:'RFC-0027', kind:'RFC', title:'Rev5 Security Controls Baseline Update — AC, AT, AU, CA, CM families',
-    summary:'Proposes baseline changes across five control families. Directly affects existing SSP control implementations and ConMon evidence.',
-    published:'2026-03-19', deadline:'2026-06-20', state:'open',
+    summary:'Proposed baseline changes across five control families. Outcome published in NTC-0013; parameter values removed, CSPs must self-assign.',
+    published:'2026-03-19', deadline:'2026-04-22', state:'closed',
     impactAreas:['Control Baseline','SSP / MR Package','ConMon Pipeline'],
-    url:'https://www.fedramp.gov/rfcs/0027', needsAction:true },
+    url:'https://www.fedramp.gov/rfcs/0027', needsAction:false },
   { id:'RFC-0028', kind:'RFC', title:'Rev5 Security Controls Baseline Update — CP, IA, IR, MA, MP families',
-    summary:'Baseline updates to contingency, identity, incident response, maintenance, media protection families.',
-    published:'2026-03-19', deadline:'2026-06-20', state:'open',
+    summary:'Baseline updates to contingency, identity, incident response, maintenance, media protection families. Outcome published in NTC-0013.',
+    published:'2026-03-19', deadline:'2026-04-22', state:'closed',
     impactAreas:['Control Baseline','Incident Response','SSP / MR Package'],
-    url:'https://www.fedramp.gov/rfcs/0028', needsAction:true },
+    url:'https://www.fedramp.gov/rfcs/0028', needsAction:false },
   { id:'RFC-0031', kind:'RFC', title:'Updated Incident Communications Procedures',
-    summary:'Revises how and when CSPs must communicate incidents to FedRAMP / agencies. Outcome published as NTC-0012.',
-    published:'2026-04-08', deadline:'2026-06-10', state:'soon',
+    summary:'Revised how and when CSPs must communicate incidents to FedRAMP / agencies. Outcome published as NTC-0012; effective Jul 4 2026.',
+    published:'2026-04-08', deadline:'2026-05-12', state:'closed',
     impactAreas:['Incident Response','ConMon Pipeline'],
-    url:'https://www.fedramp.gov/rfcs/0031', needsAction:true },
+    url:'https://www.fedramp.gov/rfcs/0031', needsAction:false },
   { id:'RFC-0026', kind:'RFC', title:'Clarifying CA-7 Continuous Monitoring Expectations for Rev5 Providers',
-    summary:'Clarifies CA-7 ConMon expectations. Likely changes evidence cadence and automation requirements.',
-    published:'2026-03-19', deadline:'2026-06-20', state:'open',
+    summary:'Clarified CA-7 ConMon expectations. Outcome published in NTC-0013; evidence cadence and automation requirements updated.',
+    published:'2026-03-19', deadline:'2026-04-22', state:'closed',
     impactAreas:['ConMon Pipeline','Control Baseline'],
-    url:'https://www.fedramp.gov/rfcs/0026', needsAction:true },
+    url:'https://www.fedramp.gov/rfcs/0026', needsAction:false },
   { id:'NTC-0009', kind:'NOTICE', title:'Initial Outcome — RFC-0024 Rev5 Machine-Readable Packages',
     summary:'Machine-readable authorization data required for Class D (High) certs. Per-service materials + integrate significant changes. Finalized in CR26.',
     published:'2026-03-25', deadline:'2026-09-30', state:'open',
     impactAreas:['SSP / MR Package','Authorization Boundary'],
     url:'https://www.fedramp.gov/notices/0009', needsAction:true },
   { id:'NTC-0008', kind:'NOTICE', title:'Initial Outcome — RFC-0023 Rev5 Program Certifications (No Sponsor)',
-    summary:'FedRAMP Ready retires 2026-07-28; new Ready submissions stop. Sponsorless program certs introduced; sunset Dec 16 2027.',
-    published:'2026-03-06', deadline:'2026-07-28', state:'soon',
+    summary:'FedRAMP Ready retired today (2026-07-28); new Ready submissions stopped. Sponsorless program certs introduced; sunset Dec 16 2027. Class A pipeline opens Aug 3.',
+    published:'2026-03-06', deadline:'2026-07-28', state:'closed',
     impactAreas:['Marketplace Listing','Authorization Boundary'],
-    url:'https://www.fedramp.gov/notices/0008', needsAction:true },
+    url:'https://www.fedramp.gov/notices/0008', needsAction:false },
   { id:'NTC-0010', kind:'NOTICE', title:'FedRAMP Response to CISA ED 25-03',
-    summary:'FedRAMP response to a CISA Emergency Directive. May require expedited remediation + reporting from CSPs.',
-    published:'2026-04-23', deadline:'2026-05-15', state:'overdue',
+    summary:'FedRAMP response to CISA Emergency Directive 25-03. Expedited remediation + reporting required. Led to inbox-test rule (see NTC-0015/NTC-0016).',
+    published:'2026-04-23', deadline:'2026-05-15', state:'closed',
     impactAreas:['Vuln Management','Incident Response'],
-    url:'https://www.fedramp.gov/notices/0010', needsAction:true },
+    url:'https://www.fedramp.gov/notices/0010', needsAction:false },
   { id:'NTC-0006', kind:'NOTICE', title:'CISA Emergency Directive 26-03 — Cisco SD-WAN',
     summary:'Mitigate vulnerabilities in Cisco SD-WAN systems. Inventory + patch affected components within directive timeline.',
     published:'2026-02-25', deadline:'2026-03-10', state:'closed',
     impactAreas:['Vuln Management'],
     url:'https://www.fedramp.gov/notices/0006', needsAction:false },
   { id:'NTC-0004', kind:'NOTICE', title:'Initial Outcome — RFC-0020 Authorization Designations',
-    summary:'Impact levels move from FIPS-199 Low/Mod/High to numbered classes A–D; new formal authorization labels (now "Certification").',
-    published:'2026-02-25', deadline:'2026-06-30', state:'open',
+    summary:'Impact levels move from FIPS-199 Low/Mod/High to numbered classes A–D; new formal authorization labels (now "Certification"). Effective in CR26.',
+    published:'2026-02-25', deadline:'2026-06-30', state:'closed',
     impactAreas:['Marketplace Listing','Authorization Boundary','SSP / MR Package'],
-    url:'https://www.fedramp.gov/notices/0004', needsAction:true },
+    url:'https://www.fedramp.gov/notices/0004', needsAction:false },
   { id:'NTC-0011', kind:'NOTICE', title:'Initial Outcome — Public Comment Process Retrospective (RFC-0025)',
     summary:'Process changes to how FedRAMP runs public comment. Informational; adjust how your team submits feedback.',
     published:'2026-05-27', deadline:null, state:'closed',
     impactAreas:[],
     url:'https://www.fedramp.gov/notices/0011', needsAction:false },
-  { id:'CR26', kind:'REG', title:'Consolidated Rules for 2026 (CR26) — Public Preview',
-    summary:'Single consolidated ruleset replacing prior fragmented guidance; valid through Dec 31 2028. Finalizes outcomes of RFCs 0019–0024. Full gap analysis required.',
-    published:'2026-05-04', deadline:'2026-06-30', state:'soon',
-    impactAreas:['Control Baseline','SSP / MR Package','ConMon Pipeline','Marketplace Listing','Authorization Boundary'],
-    url:'https://preview.fedramp.gov/2026', needsAction:true },
   { id:'FR-2026-GSA', kind:'REG', title:'Federal Register: GSA / FedRAMP rule activity',
     summary:'Live query against the Federal Register API for GSA documents referencing FedRAMP. Seeded placeholder — wire to /api/v1/documents.json?conditions[term]=FedRAMP.',
     published:'2026-05-20', deadline:null, state:'open',
@@ -682,21 +758,25 @@ const ITEMS = [
     url:'https://www.federalregister.gov/documents/search?conditions%5Bterm%5D=FedRAMP', needsAction:false },
 ];
 
-const SYSTEMS = ['Control Baseline','ConMon Pipeline','SSP / MR Package','Incident Response','Vuln Management','Marketplace Listing','Authorization Boundary'];
+const SYSTEMS = ['Control Baseline','ConMon Pipeline','SSP / MR Package','Incident Response','Vuln Management','Marketplace Listing','Authorization Boundary','CSP Communications'];
 
 const TEAM = {AR:'A. Reyes', JK:'J. Kang', MO:'M. Osei', SV:'S. Vance'};
 
 /* Actionable tasks derived from items. status ∈ triage|progress|blocked|done */
 let TASKS = [
-  {id:'T1', itemId:'NTC-0010', title:'Confirm Cisco SD-WAN exposure & file remediation evidence', who:'SV', pri:'P1', status:'progress'},
-  {id:'T2', itemId:'NTC-0008', title:'Decide: sponsorless program cert vs. finish Ready before 07-28', who:'AR', pri:'P1', status:'triage'},
-  {id:'T3', itemId:'CR26', title:'Run full gap analysis against CR26 preview', who:'JK', pri:'P1', status:'progress'},
-  {id:'T4', itemId:'NTC-0009', title:'Scope machine-readable package generation for Class D services', who:'MO', pri:'P2', status:'triage'},
-  {id:'T5', itemId:'RFC-0027', title:'Draft public comment on AC/AU/CM baseline deltas', who:'JK', pri:'P2', status:'triage'},
-  {id:'T6', itemId:'RFC-0031', title:'Update Incident Response Plan comms section', who:'SV', pri:'P2', status:'blocked'},
-  {id:'T7', itemId:'NTC-0004', title:'Migrate marketplace listing to A–D class labels', who:'AR', pri:'P3', status:'triage'},
-  {id:'T8', itemId:'RFC-0026', title:'Audit CA-7 ConMon automation against new expectations', who:'MO', pri:'P2', status:'progress'},
-  {id:'T9', itemId:'NTC-0006', title:'Cisco SD-WAN patch verification', who:'SV', pri:'P3', status:'done'},
+  {id:'T1', itemId:'NTC-0016', title:'Verify inbox test compliance — confirm corrective action plan submitted', who:'AR', pri:'P1', status:'progress'},
+  {id:'T2', itemId:'NTC-0014', title:'Implement VDR/VER rules per BOD 26-04 alignment (deadline Dec 7)', who:'SV', pri:'P1', status:'progress'},
+  {id:'T3', itemId:'CR26', title:'Run full gap analysis against CR26 effective rules', who:'JK', pri:'P1', status:'progress'},
+  {id:'T4', itemId:'NTC-0013', title:'Inventory all FedRAMP-assigned parameters; plan CSP-defined replacements', who:'MO', pri:'P1', status:'triage'},
+  {id:'T5', itemId:'BOD-26-04', title:'Map four BOD risk factors to current vuln-management workflow', who:'SV', pri:'P1', status:'triage'},
+  {id:'T6', itemId:'NTC-0013', title:'Scope Certification Package migration (Overview, SDR, SCG formats)', who:'JK', pri:'P2', status:'triage'},
+  {id:'T7', itemId:'NTC-0009', title:'Scope machine-readable package generation for Class D services', who:'MO', pri:'P2', status:'progress'},
+  {id:'T8', itemId:'NTC-0012', title:'Update Incident Response Plan comms section per PAIN framework', who:'SV', pri:'P2', status:'progress'},
+  {id:'T9', itemId:'NTC-0008', title:'Confirm Ready retirement handled; evaluate sponsorless cert path', who:'AR', pri:'P2', status:'done'},
+  {id:'T10', itemId:'CR26', title:'Prepare for Class A pipeline opening Aug 3', who:'AR', pri:'P1', status:'triage'},
+  {id:'T11', itemId:'NTC-0004', title:'Migrate marketplace listing to A–D class labels', who:'AR', pri:'P3', status:'progress'},
+  {id:'T12', itemId:'NTC-0010', title:'Confirm Cisco SD-WAN exposure & file remediation evidence', who:'SV', pri:'P3', status:'done'},
+  {id:'T13', itemId:'NTC-0006', title:'Cisco SD-WAN patch verification', who:'SV', pri:'P3', status:'done'},
 ];
 
 const SOURCES = [
@@ -782,6 +862,7 @@ function renderFeed(){
         <div class="meta">${it.impactAreas.map(a=>`<span class="tag">${a}</span>`).join('') || '<span class="tag">no mapped systems</span>'}</div>
       </div>
       <div class="right">
+        <span class="risk-badge ${riskScore(it).cls}">${riskScore(it).label}</span>
         <span class="status ${st}">${stLabel}</span>
         <span class="deadline ${dlClass}">${fmtDate(it.deadline)}<br><b>${dlText}</b></span>
       </div>
@@ -1027,11 +1108,13 @@ function seedStatus(){
   });
 }
 let POAMS=[
- {id:1,controlRef:'RA-5',title:'Remediate actively-exploited CVE (CISA ED)',severity:'high',status:'open',owner:'S. Vance',due:'2026-06-18',changeId:'NTC-0010'},
- {id:2,controlRef:'SI-2',title:'Clear flaw-remediation backlog to SLA',severity:'high',status:'open',owner:'S. Vance',due:'2026-06-20',changeId:'NTC-0010'},
- {id:3,controlRef:'IR-8',title:'Update IR plan for NTC-0012 comms procedures',severity:'moderate',status:'in_progress',owner:'J. Kim',due:'2026-07-01',changeId:'NTC-0012'},
- {id:4,controlRef:'CA-7',title:'Automate ConMon monthly scan reporting',severity:'moderate',status:'open',owner:'A. Rivera',due:'2026-07-15',changeId:'RFC-0026'},
- {id:5,controlRef:'AC-6',title:'Close least-privilege gaps on prod roles',severity:'moderate',status:'open',owner:'M. Osei',due:'2026-06-30',changeId:''},
+ {id:1,controlRef:'RA-5',title:'Implement VDR/VER rules per BOD 26-04 (NTC-0014)',severity:'high',status:'open',owner:'S. Vance',due:'2026-12-07',changeId:'NTC-0014'},
+ {id:2,controlRef:'SI-2',title:'Map four BOD risk factors to vuln-mgmt workflow',severity:'high',status:'open',owner:'S. Vance',due:'2026-08-07',changeId:'BOD-26-04'},
+ {id:3,controlRef:'IR-8',title:'Update IR plan per PAIN framework (NTC-0012)',severity:'moderate',status:'in_progress',owner:'S. Vance',due:'2026-08-15',changeId:'NTC-0012'},
+ {id:4,controlRef:'CA-7',title:'Automate ConMon reporting — legacy monthly scanning insufficient',severity:'high',status:'open',owner:'A. Rivera',due:'2026-09-30',changeId:'NTC-0014'},
+ {id:5,controlRef:'SA-4',title:'Scope Certification Package migration (SDR, SCG, Overview)',severity:'moderate',status:'open',owner:'J. Kang',due:'2026-10-31',changeId:'NTC-0013'},
+ {id:6,controlRef:'AC-6',title:'Close least-privilege gaps on prod roles',severity:'moderate',status:'in_progress',owner:'M. Osei',due:'2026-08-30',changeId:''},
+ {id:7,controlRef:'RA-5',title:'Remediate CISA ED 25-03 CVE (closed)',severity:'high',status:'closed',owner:'S. Vance',due:'2026-06-18',changeId:'NTC-0010'},
 ];
 function stOf(ref){return (STATUS[ref]||{}).status||'planned';}
 let postureBaseline='HIGH';
@@ -1068,10 +1151,11 @@ function renderPosture(){
       ? total+' controls in current ATO scope'
       : total+' controls in target · '+gapN+' to implement';
   }
-  const card=(n,l,c)=>'<div class="br-stat"><div class="n" style="color:'+c+'">'+n+'</div><div class="l">'+l+'</div></div>';
+  const card=(n,l,c,link)=>'<div class="br-stat"'+(link?' style="cursor:pointer" onclick="window.open(\''+link+'\',\'_blank\')"':'')+' title="'+(link?'Open gap analysis':'')+'"><div class="n" style="color:'+c+'">'+n+'</div><div class="l">'+l+'</div></div>';
+  const gapLink = postureBaseline!==SYSTEM.currentAto ? 'gap.html?from='+SYSTEM.currentAto+'&to='+postureBaseline : '';
   document.getElementById('posStats').innerHTML=
-    card(by.implemented||0,'Implemented','var(--teal)')+card(by.partial||0,'Partial','var(--blue)')+
-    card(by.planned||0,'Gap to close','var(--signal)')+card(na,'Not applicable','var(--muted-2)');
+    card(by.implemented||0,'Implemented','var(--teal)','')+card(by.partial||0,'Partial','var(--blue)','')+
+    card(by.planned||0,'Gap to close','var(--signal)',gapLink)+card(na,'Not applicable','var(--muted-2)','');
   // by family
   const fam={};scope.forEach(c=>{const s=stOf(c.ref);const f=fam[c.family]=fam[c.family]||{family:c.family,title:c.family_title||FAM_TITLE[c.family],counts:{},n:0};f.counts[s]=(f.counts[s]||0)+1;f.n++;});
   document.getElementById('posFamilies').innerHTML=Object.keys(fam).sort().map(k=>{const f=fam[k];
@@ -1105,6 +1189,15 @@ function renderPosture(){
   const inScopeRefs=new Set(scope.map(c=>c.ref));
   const op=POAMS.filter(p=>(p.status==='open'||p.status==='in_progress')&&inScopeRefs.has(p.controlRef)&&p.changeId).sort((a,b)=>({high:0,moderate:1,low:2}[a.severity]-{high:0,moderate:1,low:2}[b.severity]));
   document.getElementById('posPoams').innerHTML=op.length?op.map(p=>'<div class="att-row"><span class="sev sev-'+p.severity+'"></span><div><div onclick="openControl(\''+p.controlRef+'\')" style="cursor:pointer">'+p.title+'</div><div class="ameta" style="margin:2px 0 0">'+p.controlRef+' · '+p.owner+(p.due?' · due '+p.due:'')+' · '+p.changeId+'</div></div><button class="poam-close" onclick="closePoam('+p.id+')">Close</button></div>').join(''):'<p class="sub" style="padding:8px 0">No open POA&Ms tied to in-scope intake changes.</p>';
+  // update gap link
+  const posGapLinkEl=document.getElementById('posGapLink');
+  if(posGapLinkEl && postureBaseline!==SYSTEM.currentAto){
+    posGapLinkEl.href='gap.html?from='+SYSTEM.currentAto+'&to='+postureBaseline;
+    posGapLinkEl.textContent='View full '+_BL_LABEL[SYSTEM.currentAto].replace('FedRAMP ','')+' → '+_BL_LABEL[postureBaseline].replace('FedRAMP ','')+' gap analysis ('+(by.planned||0)+' controls) →';
+    posGapLinkEl.style.display='';
+  } else if(posGapLinkEl){
+    posGapLinkEl.style.display='none';
+  }
   // revalidate
   const changed=[...changedControlsSet()].filter(r=>['implemented','partial'].includes(stOf(r))).slice(0,14);
   document.getElementById('posRevalidate').innerHTML=changed.length?changed.map(r=>'<span class="br-ctrl" onclick="openControl(\''+r+'\')">'+r+' <span class="stp '+STATUS_META[stOf(r)].cls+'" style="margin-left:4px">'+STATUS_META[stOf(r)].label+'</span></span>').join(''):'<span style="color:var(--muted-2);font-family:var(--mono);font-size:12px">Nothing flagged.</span>';
@@ -1128,7 +1221,7 @@ function saveStatus(ref){
 }
 
 /* ===================== CONTROLS LIBRARY ===================== */
-const CONTROLS_API='';  // <-- set to deployed controls API base to load the live FedRAMP Rev5 catalog
+const CONTROLS_API='http://localhost:8787';  // <-- set to deployed controls API base to load the live FedRAMP Rev5 catalog
 const FW_NAMES={'nist-csf-v2':'NIST CSF 2.0','soc2':'SOC 2','iso-27001':'ISO 27001:2022','pci-dss-4':'PCI DSS 4.0'};
 const FAM_TITLE={AC:'Access Control',AT:'Awareness and Training',AU:'Audit and Accountability',CA:'Assessment, Authorization, and Monitoring',CM:'Configuration Management',CP:'Contingency Planning',IA:'Identification and Authentication',IR:'Incident Response',RA:'Risk Assessment',SC:'System and Communications Protection',SI:'System and Information Integrity'};
 const A4=['LI-SAAS','LOW','MODERATE','HIGH'], MH=['MODERATE','HIGH'], LMH=['LOW','MODERATE','HIGH'];
@@ -1566,7 +1659,12 @@ const CROSSWALKS={
 const CHANGE_CONTROLS={
  'RFC-0027':{families:['AC','AT','AU','CA','CM']},'RFC-0028':{families:['CP','IA','IR','MA','MP']},
  'RFC-0026':{refs:['CA-7']},'NTC-0012':{refs:['IR-4','IR-5','IR-6','IR-8']},
- 'NTC-0010':{refs:['RA-5','SI-2']},'NTC-0009':{refs:['CA-2','CA-6','SA-5']},'CR26':{families:['AC','AU','CM','CA','SC']},
+ 'NTC-0013':{families:['AC','AT','AU','CA','CM','CP','IA','IR','MA','MP','PE','PL','PS','PT','RA','SA','SC','SI','SR']},
+ 'NTC-0014':{refs:['RA-5','SI-2','SI-4','CA-7']},
+ 'NTC-0016':{refs:['IR-6','IR-8']},
+ 'BOD-26-04':{refs:['RA-5','SI-2','SI-4','CA-7']},
+ 'NTC-0010':{refs:['RA-5','SI-2']},'NTC-0009':{refs:['CA-2','CA-6','SA-5']},
+ 'CR26':{families:['AC','AU','CM','CA','SC','SA','IR','RA']},
 };
 const CONTROL_SYS={'CA-7':['ConMon Pipeline'],'RA-5':['Vuln Management','ConMon Pipeline'],'SI-2':['Vuln Management'],'IR-4':['Incident Response'],'IR-5':['Incident Response'],'IR-6':['Incident Response'],'IR-8':['Incident Response'],'CA-2':['SSP / MR Package'],'SC-7':['Authorization Boundary']};
 const FAMILY_SYS={AC:'Control Baseline',AU:'ConMon Pipeline',CM:'Control Baseline',IR:'Incident Response',RA:'Vuln Management',SI:'Vuln Management',CA:'ConMon Pipeline',SC:'Authorization Boundary',SA:'SSP / MR Package'};
@@ -2007,6 +2105,161 @@ function updTkProgress(){
 }
 
 /* =====================================================================
+   TIMELINE — critical dates from intake items
+   ===================================================================== */
+function renderTimeline(){
+  const el = document.getElementById('posTimeline');
+  if(!el) return;
+  const milestones = [];
+  ITEMS.forEach(it=>{
+    if(!it.deadline) return;
+    const d = daysTo(it.deadline);
+    if(d < -30) return; // skip items more than 30 days past
+    milestones.push({date:it.deadline, label:it.id+': '+(it.title.length>40?it.title.slice(0,38)+'…':it.title), days:d, id:it.id});
+  });
+  milestones.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const shown = milestones.slice(0, 8);
+  el.innerHTML = '<div class="tl-track">'+shown.map(m=>{
+    let dotCls = 'future';
+    let tagHtml = '';
+    if(m.days < 0){ dotCls='past'; tagHtml='<span class="tl-tag overdue-tag">'+Math.abs(m.days)+'d ago</span>'; }
+    else if(m.days === 0){ dotCls='today'; tagHtml='<span class="tl-tag today-tag">TODAY</span>'; }
+    else if(m.days <= 14){ dotCls='soon'; tagHtml='<span class="tl-tag today-tag">'+m.days+'d</span>'; }
+    else { tagHtml='<span class="tl-tag" style="background:var(--panel-2);color:var(--muted)">'+m.days+'d</span>'; }
+    const labelCls = m.days < 0 ? 'muted' : '';
+    return '<div class="tl-item"><div class="tl-label '+labelCls+'">'+tagHtml+m.label+'</div><div class="tl-dot '+dotCls+'"></div><div class="tl-date">'+fmtDate(m.date)+'</div></div>';
+  }).join('')+'</div>';
+}
+
+/* =====================================================================
+   WEEK SUMMARY — "what changed this week" card
+   ===================================================================== */
+function renderWeekSummary(){
+  const el = document.getElementById('weekSummary');
+  if(!el) return;
+  const weekAgo = new Date(TODAY - 7*864e5);
+  const newItems = ITEMS.filter(it=> new Date(it.published) >= weekAgo);
+  const deadlinesSoon = ITEMS.filter(it=> { const d=daysTo(it.deadline); return d!==null && d>=0 && d<=7 && liveState(it)!=='closed'; });
+  const overdue = ITEMS.filter(it=> liveState(it)==='overdue');
+  const openTasks = TASKS.filter(t=>t.status!=='done').length;
+  el.innerHTML = [
+    '<div class="ws-item"><span class="ws-n">'+newItems.length+'</span> new this week</div>',
+    '<div class="ws-item'+(deadlinesSoon.length?' urgent':'')+'"><span class="ws-n">'+deadlinesSoon.length+'</span> deadline'+(deadlinesSoon.length!==1?'s':'')+' in 7 days</div>',
+    '<div class="ws-item'+(overdue.length?' danger':'')+'"><span class="ws-n">'+overdue.length+'</span> overdue</div>',
+    '<div class="ws-item"><span class="ws-n">'+openTasks+'</span> open tasks</div>',
+  ].join('');
+}
+
+/* =====================================================================
+   RISK SCORE — computed priority badge for feed cards
+   ===================================================================== */
+function riskScore(it){
+  if(liveState(it)==='closed') return {score:0, label:'CLOSED', cls:'risk-low'};
+  let score = 0;
+  const d = daysTo(it.deadline);
+  if(d !== null){
+    if(d < 0) score += 40 + Math.min(Math.abs(d), 30);
+    else if(d <= 7) score += 35;
+    else if(d <= 21) score += 20;
+    else if(d <= 60) score += 10;
+  }
+  score += (it.impactAreas||[]).length * 8;
+  if(it.needsAction) score += 15;
+  if(it.kind === 'REG') score += 5;
+  let label, cls;
+  if(score >= 50){ label='CRITICAL'; cls='risk-crit'; }
+  else if(score >= 35){ label='HIGH'; cls='risk-high'; }
+  else if(score >= 20){ label='MEDIUM'; cls='risk-med'; }
+  else { label='LOW'; cls='risk-low'; }
+  return {score, label, cls};
+}
+
+/* =====================================================================
+   POSTURE EXPORT — CSV and printable report
+   ===================================================================== */
+function exportPostureCSV(){
+  const scope = _postureControls();
+  const rows = [['Control','Family','Title','Status','Owner','Last Reviewed','Next Review','Evidence','Notes']];
+  scope.forEach(c=>{
+    const s = STATUS[c.ref]||{};
+    rows.push([c.ref, c.family, (c.title||'').replace(/"/g,'""'), s.status||'planned', s.owner||'', s.lastReviewed||'', s.nextReview||'', s.evidence||'', (s.notes||'').replace(/"/g,'""')]);
+  });
+  const csv = rows.map(r=>r.map(v=>'"'+v+'"').join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lighthouse-posture-'+postureBaseline.toLowerCase()+'-'+TODAY.toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+function exportPosturePDF(){
+  const scope = _postureControls();
+  const by = postureCounts();
+  const total = scope.length, na = by.not_applicable||0, applicable = total - na;
+  const cov = applicable ? Math.round(100*(by.implemented||0)/applicable) : 0;
+  const fam = {};
+  scope.forEach(c=>{ const s=stOf(c.ref); const f=fam[c.family]=fam[c.family]||{family:c.family,impl:0,partial:0,planned:0,total:0}; f.total++; if(s==='implemented')f.impl++; else if(s==='partial')f.partial++; else if(s==='planned')f.planned++; });
+  const families = Object.values(fam).sort((a,b)=>b.planned-a.planned);
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Posture Report — ${_BL_LABEL[postureBaseline]}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;padding:40px 60px;color:#1a1a2e;font-size:13px;line-height:1.5}
+h1{font-size:22px;margin-bottom:4px}h2{font-size:15px;margin:24px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}
+.meta{color:#666;font-size:12px;margin-bottom:20px}.stats{display:flex;gap:24px;margin:16px 0}
+.stat{text-align:center}.stat .n{font-size:28px;font-weight:800}.stat .l{font-size:11px;color:#666;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11.5px}th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #eee}
+th{background:#f5f5f5;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.3px}
+.bar{height:10px;border-radius:3px;display:flex;overflow:hidden}.bar>div{height:100%}
+.impl{background:#34d3b0}.partial{background:#5aa9ff}.planned{background:#f5a623}
+@media print{body{padding:20px}}
+</style></head><body>
+<h1>Compliance Posture Report</h1>
+<p class="meta">Cribl LogStream Cloud — Gov · Target: ${_BL_LABEL[postureBaseline]} · Generated: ${TODAY.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</p>
+<div class="stats">
+<div class="stat"><div class="n" style="color:#34d3b0">${by.implemented||0}</div><div class="l">Implemented</div></div>
+<div class="stat"><div class="n" style="color:#5aa9ff">${by.partial||0}</div><div class="l">Partial</div></div>
+<div class="stat"><div class="n" style="color:#f5a623">${by.planned||0}</div><div class="l">Gap</div></div>
+<div class="stat"><div class="n">${cov}%</div><div class="l">Coverage</div></div>
+</div>
+<h2>Coverage by Family</h2>
+<table><tr><th>Family</th><th>Impl</th><th>Partial</th><th>Gap</th><th>Total</th><th style="width:40%">Coverage</th></tr>
+${families.map(f=>`<tr><td><b>${f.family}</b></td><td>${f.impl}</td><td>${f.partial}</td><td>${f.planned}</td><td>${f.total}</td><td><div class="bar"><div class="impl" style="width:${100*f.impl/f.total}%"></div><div class="partial" style="width:${100*f.partial/f.total}%"></div><div class="planned" style="width:${100*f.planned/f.total}%"></div></div></td></tr>`).join('')}
+</table>
+<h2>Controls Detail</h2>
+<table><tr><th>Ref</th><th>Title</th><th>Status</th><th>Owner</th><th>Evidence</th></tr>
+${scope.map(c=>{const s=STATUS[c.ref]||{};return `<tr><td>${c.ref}</td><td>${c.title||''}</td><td>${s.status||'planned'}</td><td>${s.owner||''}</td><td>${s.evidence||'—'}</td></tr>`;}).join('')}
+</table>
+<p style="margin-top:24px;color:#999;font-size:10px">Generated by Cribl Lighthouse. Illustrative data — verify against authoritative SSP.</p>
+</body></html>`);
+  w.document.close();
+}
+
+/* =====================================================================
+   POLL NOW — trigger backend poll from the UI
+   ===================================================================== */
+async function pollNow(){
+  const btn = document.getElementById('pollNowBtn');
+  const status = document.getElementById('pollStatus');
+  if(!CONTROLS_API){ status.textContent='Set CONTROLS_API to enable live polling'; status.style.color='var(--signal)'; return; }
+  btn.disabled = true; btn.textContent = '⚡ Polling…';
+  status.textContent = 'Requesting poll cycle…'; status.style.color='var(--muted)';
+  try {
+    const r = await fetch(CONTROLS_API.replace(/\/$/,'')+'/admin/poll-now', {method:'POST'});
+    if(r.ok){
+      const data = await r.json();
+      status.textContent = 'Poll complete — '+(data.new_items||0)+' new items found';
+      status.style.color = 'var(--teal)';
+      await loadLiveItemsAndTasks();
+      renderStats(); renderFeed(); renderBoard(); renderWeekSummary(); renderTimeline();
+    } else {
+      status.textContent = 'Poll failed ('+r.status+')'; status.style.color='var(--red)';
+    }
+  } catch(e){
+    status.textContent = 'Backend unreachable'; status.style.color='var(--red)';
+  }
+  btn.disabled = false; btn.textContent = '⚡ Poll now';
+}
+
+/* =====================================================================
    LIVE DATA SHIM — when CONTROLS_API is set, replace seeded ITEMS/TASKS
    with what the backend has. Fails open: a backend outage falls back
    to the bundled illustrative data so the page is never blank.
@@ -2041,7 +2294,7 @@ async function loadLiveItemsAndTasks(){
 (async () => {
   await loadLiveItemsAndTasks();
   setSync(); renderStats(); renderFeed(); renderMatrix(); renderBoard(); renderSources(); loadLiveFeeds();
-  seedStatus(); renderPosture();
+  seedStatus(); renderPosture(); renderTimeline(); renderWeekSummary();
 })();
 </script>
 </body>
