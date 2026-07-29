@@ -153,9 +153,9 @@ const CONTROLS = [{"ref":"AC-1","title":"Policy and Procedures","family":"AC","f
 const FAM_TITLE = {"AC": "Access Control", "AT": "Awareness and Training", "AU": "Audit and Accountability", "CA": "Assessment, Authorization, and Monitoring", "CM": "Configuration Management", "CP": "Contingency Planning", "IA": "Identification and Authentication", "IR": "Incident Response", "MA": "Maintenance", "MP": "Media Protection", "PE": "Physical and Environmental Protection", "PL": "Planning", "PS": "Personnel Security", "RA": "Risk Assessment", "SA": "System and Services Acquisition", "SC": "System and Communications Protection", "SI": "System and Information Integrity", "SR": "Supply Chain Risk Management", "GV": "Govern", "ID": "Identify", "PR": "Protect", "DE": "Detect", "RS": "Respond", "RC": "Recover", "ISM-GOV": "Cyber Security Governance", "ISM-PER": "Personnel Security", "ISM-PHY": "Physical Security", "ISM-COM": "Communications Security", "ISM-ICT": "ICT Equipment Security", "ISM-SFT": "Software Security", "ISM-EML": "Email Security", "ISM-NET": "Networking Security", "ISM-CRY": "Cryptography", "ISM-GW": "Gateways & Cross Domain", "ISM-DAT": "Data Security", "ISM-ENT": "Enterprise Systems", "ISM-MON": "System Monitoring", "ISM-INC": "Incident Management", "ISM-MED": "Media Security", "ISM-CLD": "Cloud & Outsourcing"};
 const FRAMEWORKS = [
   {id:'NONE',     label:'Greenfield \u2014 nothing implemented'},
-  {id:'LOW',      label:'FedRAMP Rev5 Low'},
-  {id:'MODERATE', label:'FedRAMP Rev5 Moderate'},
-  {id:'HIGH',     label:'FedRAMP Rev5 High'},
+  {id:'LOW',      label:'FedRAMP Low (Class A)'},
+  {id:'MODERATE', label:'FedRAMP Moderate (Class B)'},
+  {id:'HIGH',     label:'FedRAMP High (Class C/D)'},
   {id:'IL2',      label:'DoD IL2 (Public / Non-CUI)', advisory:true, base:'LOW',      cite:'DoD CC SRG v1r4 \u00a75.1'},
   {id:'IL4',      label:'DoD IL4 (CUI)',              advisory:true, base:'MODERATE', cite:'DoD CC SRG v1r4 \u00a75.2'},
   {id:'IL5',      label:'DoD IL5 (CUI \u2014 Higher Sensitivity)', advisory:true, base:'HIGH', cite:'DoD CC SRG v1r4 \u00a75.3 + CNSSI 1253'},
@@ -651,11 +651,11 @@ CONTROLS.forEach(c=>{
 const CATALOGS = {
   FEDRAMP: {
     id: 'FEDRAMP',
-    name: 'FedRAMP Rev5 + DoD IL',
+    name: 'FedRAMP (CR26 Classes) + DoD IL',
     shortName: 'FedRAMP',
-    source: 'GSA fedramp-automation (OSCAL) + NIST SP 800-53 Rev5 + DoD CC SRG v1r4',
-    version: 'Rev5 / CC SRG v1r4',
-    lastRefreshed: '2026-06',
+    source: 'GSA fedramp-automation (OSCAL) + NIST SP 800-53 Rev5 + DoD CC SRG v1r4 + Consolidated Rules for 2026',
+    version: 'Rev5 / CR26 / CC SRG v1r4',
+    lastRefreshed: '2026-07',
     advisory: false,            // FedRAMP/NIST is OSCAL-authoritative; IL overlays carry per-baseline advisory flags
     baselineFilter: ['NONE','LOW','MODERATE','HIGH','IL2','IL4','IL5','IL6'],
     controls: CONTROLS,         // existing flat array — reused in place

@@ -478,12 +478,12 @@
     <div class="pos-head">
       <div>
         <h2 style="font-size:17px;margin-bottom:2px">Compliance posture</h2>
-        <p class="sub" id="posSys">Cribl LogStream Cloud — Gov · Current ATO: <b style="color:var(--teal)">FedRAMP Moderate</b> · Readiness toward: <b id="posBaselineLabel">FedRAMP High</b></p>
+        <p class="sub" id="posSys">Cribl LogStream Cloud — Gov · Current Certification: <b style="color:var(--teal)">FedRAMP Moderate (Class B)</b> · Readiness toward: <b id="posBaselineLabel">FedRAMP High (Class C/D)</b></p>
         <div class="pos-baseline" style="display:flex;gap:6px;align-items:center;margin-top:10px">
           <span style="font-family:var(--mono);font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-right:4px">Readiness target</span>
-          <button class="chip" data-pbl="LOW" onclick="setPostureBaseline('LOW')">Low</button>
-          <button class="chip" data-pbl="MODERATE" onclick="setPostureBaseline('MODERATE')">Moderate <span class="ct" style="color:var(--teal)">ATO</span></button>
-          <button class="chip on" data-pbl="HIGH" onclick="setPostureBaseline('HIGH')">High</button>
+          <button class="chip" data-pbl="LOW" onclick="setPostureBaseline('LOW')">Low / Class A</button>
+          <button class="chip" data-pbl="MODERATE" onclick="setPostureBaseline('MODERATE')">Moderate / Class B <span class="ct" style="color:var(--teal)">CERT</span></button>
+          <button class="chip on" data-pbl="HIGH" onclick="setPostureBaseline('HIGH')">High / Class C-D</button>
           <span id="posBaselineCount" style="font-family:var(--mono);font-size:10.5px;color:var(--muted-2);margin-left:6px"></span>
         </div>
       </div>
@@ -1118,7 +1118,7 @@ let POAMS=[
 ];
 function stOf(ref){return (STATUS[ref]||{}).status||'planned';}
 let postureBaseline='HIGH';
-const _BL_LABEL={LOW:'FedRAMP Low',MODERATE:'FedRAMP Moderate',HIGH:'FedRAMP High'};
+const _BL_LABEL={LOW:'FedRAMP Low (Class A)',MODERATE:'FedRAMP Moderate (Class B)',HIGH:'FedRAMP High (Class C/D)'};
 function setPostureBaseline(bl){
   if(!_BL_LABEL[bl]) return;
   postureBaseline=bl;
