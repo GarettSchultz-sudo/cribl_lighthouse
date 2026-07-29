@@ -225,7 +225,7 @@ h3 { font-size: 22px; font-weight: 600; color: var(--muted); margin-bottom: 24px
     <p class="subtitle">FedRAMP Compliance Ops Toolkit</p>
     <div class="stat-row" style="margin-top:40px">
       <div class="stat-card"><div class="n">410</div><div class="l">Rev5 Controls</div></div>
-      <div class="stat-card"><div class="n">7</div><div class="l">Baselines</div></div>
+      <div class="stat-card"><div class="n">11</div><div class="l">Baselines</div></div>
       <div class="stat-card"><div class="n">5</div><div class="l">Live Sources</div></div>
     </div>
     <p style="margin-top:32px; font-size:16px; color:var(--muted); max-width:640px; text-align:center; line-height:1.6">
@@ -304,7 +304,7 @@ h3 { font-size: 22px; font-weight: 600; color: var(--muted); margin-bottom: 24px
   <!-- SLIDE 6: Gap Analysis -->
   <div class="slide" data-notes="Pick From/To baselines — exact set difference over OSCAL membership. Three views: Gap (what to add), Covered (overlap), Beyond target (drops). Coverage by family sorted by gap size — tells you where the lift is. Click any control to expand: NIST statement, discussion, starter implementation language (explicitly labeled as draft). DoD IL overlays advisory only, with in-page banner.">
     <h2>Baseline Gap Analysis</h2>
-    <h3>Exact deltas &middot; starter language &middot; exportable plans</h3>
+    <h3>Three frameworks &middot; exact deltas &middot; exportable plans</h3>
     <div class="screenshot">
       <img src="screenshots/03-gap-moderate-to-high.png" alt="Gap Analysis: Moderate → High"
            onerror="this.parentElement.innerHTML='<div class=screenshot-placeholder>screenshots/03-gap-moderate-to-high.png<br>(drop screenshot here)</div>'">
@@ -402,28 +402,30 @@ h3 { font-size: 22px; font-weight: 600; color: var(--muted); margin-bottom: 24px
   </div>
 
   <!-- SLIDE 10: Data & Methodology -->
-  <div class="slide" data-notes="Built on authoritative sources: FedRAMP Rev5 OSCAL profiles (GSA fedramp-automation) + NIST SP 800-53 Rev5 catalog (oscal-content). DoD IL overlays hand-curated from CC SRG v1r4 + CNSSI 1253 — advisory, clearly labeled. Gaps are exact set differences, not fuzzy crosswalks. Parallel-catalog architecture ready for SOC 2 / ISO 27001.">
+  <div class="slide" data-notes="Built on authoritative sources: FedRAMP Rev5 OSCAL profiles (GSA fedramp-automation) + NIST SP 800-53 Rev5 catalog (oscal-content). DoD IL overlays hand-curated from CC SRG v1r4 + CNSSI 1253. NIST CSF 2.0 (100 subcategories). Australian ISM (97 controls across 16 topic areas, OFFICIAL/PROTECTED/SECRET/TOP SECRET). Cross-framework mappings link all three catalogs. Gaps are exact set differences, not fuzzy crosswalks.">
     <h2>Data &amp; Methodology</h2>
-    <h3>Authoritative sources, explicit limitations</h3>
+    <h3>Three frameworks, authoritative sources</h3>
     <div class="two-col">
       <div>
         <ul class="points">
-          <li><strong>FedRAMP Rev5 OSCAL</strong><span class="sub">GSA fedramp-automation (master)</span></li>
-          <li><strong>NIST SP 800-53 Rev5</strong><span class="sub">usnistgov/oscal-content catalog</span></li>
-          <li><strong>DoD IL overlays</strong><span class="sub">CC SRG v1r4 + CNSSI 1253 (advisory)</span></li>
+          <li><strong>FedRAMP Rev5 OSCAL</strong><span class="sub">GSA fedramp-automation + DoD IL overlays</span></li>
+          <li><strong>NIST CSF 2.0</strong><span class="sub">100 subcategories · Essential / Comprehensive</span></li>
+          <li><strong>Australian ISM (IRAP)</strong><span class="sub">ASD ISM · 97 controls · OFFICIAL → TOP SECRET</span></li>
           <li><strong>Exact set differences</strong><span class="sub">Not fuzzy crosswalks</span></li>
         </ul>
       </div>
       <div>
-        <div style="background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:20px; font-family:var(--mono); font-size:13px; line-height:2">
-          <span style="color:var(--teal)">Low</span> &nbsp;156 controls<br>
-          <span style="color:var(--signal)">Moderate</span> &nbsp;323 controls<br>
-          <span style="color:var(--red)">High</span> &nbsp;410 controls<br>
+        <div style="background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:20px; font-family:var(--mono); font-size:12px; line-height:1.9">
+          <span style="color:var(--ink);font-weight:600">FedRAMP</span><br>
+          &nbsp;&nbsp;<span style="color:var(--teal)">Low</span> 156 &middot; <span style="color:var(--signal)">Mod</span> 323 &middot; <span style="color:var(--red)">High</span> 410<br>
+          &nbsp;&nbsp;<span style="color:var(--blue)">IL2-IL6</span> DoD overlays<br>
           <span style="color:var(--muted)">───────────────</span><br>
-          <span style="color:var(--blue)">DoD IL2</span> &nbsp;≈ Low<br>
-          <span style="color:var(--blue)">DoD IL4</span> &nbsp;Mod + ~20 overlay<br>
-          <span style="color:var(--blue)">DoD IL5</span> &nbsp;High + ~45 overlay<br>
-          <span style="color:var(--blue)">DoD IL6</span> &nbsp;IL5 + classified adds
+          <span style="color:var(--ink);font-weight:600">NIST CSF 2.0</span><br>
+          &nbsp;&nbsp;Essential 42 &middot; Comprehensive 100<br>
+          <span style="color:var(--muted)">───────────────</span><br>
+          <span style="color:var(--ink);font-weight:600">Australian ISM</span><br>
+          &nbsp;&nbsp;OFFICIAL &middot; PROTECTED &middot; SECRET &middot; TS<br>
+          &nbsp;&nbsp;97 controls &middot; 16 topic areas
         </div>
       </div>
     </div>
@@ -450,7 +452,7 @@ h3 { font-size: 22px; font-weight: 600; color: var(--muted); margin-bottom: 24px
     <ul class="points" style="font-size:20px">
       <li><strong>DoD IL roadmap</strong> — track IL4/IL5 alongside FedRAMP, or de-scope?<span class="sub">Affects CC SRG / CNSSI 1253 maintenance effort</span></li>
       <li><strong>Backend hosting</strong> — local + on-demand, or commit to AWS this quarter?<span class="sub">Lambda + EventBridge + DynamoDB</span></li>
-      <li><strong>Cross-framework catalogs</strong> — SOC 2 / ISO 27001 now, or pure FedRAMP focus?<span class="sub">Parallel-catalog architecture is ready; question is priority</span></li>
+      <li><strong>Additional frameworks</strong> — SOC 2 / ISO 27001 next, or optimise existing three?<span class="sub">NIST CSF 2.0 + Australian ISM shipped; architecture supports more</span></li>
     </ul>
   </div>
 
