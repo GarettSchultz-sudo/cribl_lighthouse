@@ -137,6 +137,7 @@
     <button class="chip on" data-view="GAP">Gap<span class="ct" id="cGAP">0</span></button>
     <button class="chip" data-view="SHARED">Covered<span class="ct" id="cSHARED">0</span></button>
     <button class="chip" data-view="BEYOND">Beyond target<span class="ct" id="cBEYOND">0</span></button>
+    <button class="chip" data-view="XMAP" id="xmapBtn">Cross-Map<span class="ct" id="cXMAP">0</span></button>
     <select class="fam-sel" id="famSel"><option value="">All families</option></select>
     <button class="btn" id="csv">Export CSV</button>
     <div style="width:1px;height:22px;background:var(--line);margin:0 4px"></div>
@@ -1170,9 +1171,12 @@ function render(){
   document.getElementById('cGAP').textContent=b.GAP.length;
   document.getElementById('cSHARED').textContent=b.SHARED.length;
   document.getElementById('cBEYOND').textContent=b.BEYOND.length;
+  const xmapCount = MAPPINGS.filter(m=>m.from.startsWith(currentFw+'/')||m.to.startsWith(currentFw+'/')).length;
+  document.getElementById('cXMAP').textContent=xmapCount;
   renderRows(b);
 }
 function currentRows(b){
+  if(view==='XMAP') return [];
   let r=b[view].slice();
   if(famFilter)r=r.filter(c=>c.family===famFilter);
   if(q){const s=q.toLowerCase();r=r.filter(c=>c.ref.toLowerCase().includes(s)||c.title.toLowerCase().includes(s));}
@@ -1181,6 +1185,7 @@ function currentRows(b){
 }
 function renderRows(b){
   document.querySelectorAll('.chip[data-view]').forEach(ch=>ch.classList.toggle('on',ch.dataset.view===view));
+  if(view==='XMAP'){ renderCrossMap(); return; }
   document.getElementById('listHead').textContent={GAP:'Gap controls',SHARED:'Covered controls',BEYOND:'Controls beyond target'}[view];
   const rows=currentRows(b);
   document.getElementById('countLine').textContent=`${rows.length} control${rows.length===1?'':'s'} shown \u00b7 click a row to read the control + starter response`;
@@ -1209,6 +1214,45 @@ function renderRows(b){
     </div></td></tr>`;
     return main+detail;
   }).join('');
+}
+function renderCrossMap(){
+  const maps = MAPPINGS.filter(m=>{
+    const matchFw = m.from.startsWith(currentFw+'/')||m.to.startsWith(currentFw+'/');
+    if(!matchFw) return false;
+    if(famFilter){
+      const localRef = m.from.startsWith(currentFw+'/') ? m.from.split('/')[1] : m.to.split('/')[1];
+      const ctrl = fwControls().find(c=>c.ref===localRef);
+      if(ctrl && ctrl.family!==famFilter) return false;
+      if(!ctrl) return false;
+    }
+    if(q){
+      const s=q.toLowerCase();
+      if(!m.from.toLowerCase().includes(s)&&!m.to.toLowerCase().includes(s)&&!m.source.toLowerCase().includes(s)) return false;
+    }
+    return true;
+  });
+  document.getElementById('listHead').textContent='Cross-Framework Mappings';
+  document.getElementById('countLine').textContent=`${maps.length} mapping${maps.length===1?'':'s'} shown · links between ${currentFw} and other frameworks`;
+  const tb=document.getElementById('rows');
+  if(!maps.length){tb.innerHTML='<tr><td colspan="5"><div class="empty">No cross-framework mappings for this catalog.</div></td></tr>';return;}
+  const catNames={FEDRAMP:'FedRAMP',CSF:'CSF 2.0',ISM:'ISM/IRAP'};
+  tb.innerHTML='<tr style="background:var(--panel)"><th>'+currentFw+' Control</th><th>Direction</th><th>Mapped Control</th><th>Framework</th><th>Confidence</th></tr>'+
+    maps.map(m=>{
+      const isFrom = m.from.startsWith(currentFw+'/');
+      const localRef = isFrom ? m.from.split('/')[1] : m.to.split('/')[1];
+      const remoteFull = isFrom ? m.to : m.from;
+      const remoteFw = remoteFull.split('/')[0];
+      const remoteRef = remoteFull.split('/')[1];
+      const conf = m.confidence==='concordant'
+        ? '<span style="color:var(--teal);font-weight:600">concordant</span>'
+        : '<span style="color:var(--signal)">approximate</span>';
+      return `<tr>
+        <td class="ref">${localRef}</td>
+        <td style="text-align:center">${isFrom?'→':'←'}</td>
+        <td class="ref">${remoteRef}</td>
+        <td>${catNames[remoteFw]||remoteFw}</td>
+        <td>${conf}</td></tr>`;
+    }).join('');
 }
 function cssid(ref){return ref.replace(/[()]/g,'_');}
 function toggleRow(el){
